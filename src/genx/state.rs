@@ -22,7 +22,7 @@ fn common_pkmn_stat_calc(stat: u16, ev: u16, level: u16) -> u16 {
 }
 
 #[cfg(feature = "champions")]
-fn stat_points_to_effective_ev(stat_points: u16) -> u16 {
+pub fn stat_points_to_effective_ev(stat_points: u16) -> u16 {
     if stat_points == 0 {
         0
     } else {
@@ -844,6 +844,14 @@ impl Side {
             }
         }
         options
+    }
+
+    // the user and every party member that is not fainted or statused, each hits once
+    pub fn beatup_party(&self) -> impl Iterator<Item = &Pokemon> {
+        let active = self.get_active_immutable();
+        self.pokemon.into_iter().filter(move |p| {
+            p.hp > 0 && (p.status == PokemonStatus::NONE || std::ptr::eq(*p, active))
+        })
     }
 
     pub fn reset_negative_boosts(

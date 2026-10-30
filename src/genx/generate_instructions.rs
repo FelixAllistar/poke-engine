@@ -2381,6 +2381,11 @@ pub fn generate_instructions_from_move(
     let attacker_side = state.get_side_immutable(&attacking_side);
     let attacker = attacker_side.get_active_immutable();
     match choice.multi_hit() {
+        #[cfg(not(feature = "gen4"))]
+        MultiHitMove::None if choice.move_id == Choices::BEATUP => {
+            // one hit for the user and each healthy party member
+            hit_branches[0].0 = attacker_side.beatup_party().count() as i8;
+        }
         MultiHitMove::None => {}
         MultiHitMove::DoubleHit => {
             hit_branches[0].0 = 2;

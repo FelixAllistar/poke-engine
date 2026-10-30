@@ -2,6 +2,8 @@ use super::abilities::{ignores_target_ability, Abilities};
 use super::damage_calc::type_effectiveness_modifier;
 use super::generate_instructions::{add_remove_status_instructions, apply_boost_instruction};
 use super::items::{get_choice_move_disable_instructions, Items};
+#[cfg(feature = "champions")]
+use super::state::stat_points_to_effective_ev;
 use super::state::{PokemonVolatileStatus, Terrain, Weather};
 use crate::choices::{
     Boost, Choice, Choices, Effect, Heal, MoveCategory, MoveTarget, Secondary, StatBoosts,
@@ -189,6 +191,36 @@ pub fn modify_choice(
         Choices::HARDPRESS => {
             let defender = defending_side.get_active_immutable();
             attacker_choice.base_power = 100.0 * (defender.hp as f32 / defender.maxhp as f32);
+        }
+        #[cfg(not(feature = "gen4"))]
+        Choices::BEATUP => {
+            // each hit has 5 + base attack / 10 power, every hit uses the average
+            // most species have no base stats in the engine, so base attack is recovered by
+            // inverting the attack stat calculation, rounding up each floor it took
+            use crate::state::PokemonNature;
+            let (mut hits, mut base_power) = (0, 0);
+            for p in attacking_side.beatup_party() {
+                #[cfg(feature = "champions")]
+                let evs = stat_points_to_effective_ev(p.evs.1 as u16) as i32;
+                #[cfg(not(feature = "champions"))]
+                let evs = p.evs.1 as i32;
+                let (num, den) = match p.nature {
+                    PokemonNature::LONELY
+                    | PokemonNature::ADAMANT
+                    | PokemonNature::NAUGHTY
+                    | PokemonNature::BRAVE => (10, 11),
+                    PokemonNature::BOLD
+                    | PokemonNature::MODEST
+                    | PokemonNature::CALM
+                    | PokemonNature::TIMID => (10, 9),
+                    _ => (1, 1),
+                };
+                let stat = (p.attack as i32 * num + den - 1) / den - 5;
+                let stat = (stat * 100 + p.level as i32 - 1) / p.level as i32;
+                base_power += 5 + (stat - 31 - evs / 4 + 1) / 2 / 10;
+                hits += 1;
+            }
+            attacker_choice.base_power = base_power as f32 / hits as f32;
         }
         Choices::LASTRESPECTS => {
             // Technically not correct because of reviving moves but good enough

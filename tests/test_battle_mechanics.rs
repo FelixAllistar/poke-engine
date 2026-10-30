@@ -16478,6 +16478,104 @@ fn test_tripleaxel_with_skilllink_always_hits_3_times() {
 }
 
 #[test]
+#[cfg(not(any(feature = "gen4", feature = "champions")))]
+fn test_beatup_hits_once_per_healthy_party_member() {
+    use poke_engine::state::PokemonNature;
+    let mut state = State::default();
+    // 80 base attack with 85 attack EVs
+    for pkmn in state.side_one.pokemon.pkmn.iter_mut() {
+        pkmn.attack = 217;
+    }
+    // 130 base attack with 252 attack EVs and an adamant nature
+    state.side_one.get_active().attack = 394;
+    state.side_one.get_active().evs.1 = 252;
+    state.side_one.get_active().nature = PokemonNature::ADAMANT;
+    state.side_one.pokemon[PokemonIndex::P1].hp = 0;
+    state.side_one.pokemon[PokemonIndex::P2].status = PokemonStatus::BURN;
+    state.side_two.get_active().defense = 300;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::BEATUP,
+        Choices::SPLASH,
+    );
+
+    // 4 hits: the user (130 base attack, 18 power) and the 3 healthy party members
+    // (80 base attack, 13 power each), each hit uses the average power of 14.25
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 15,
+            }),
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 15,
+            }),
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 15,
+            }),
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 15,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+#[cfg(feature = "champions")]
+fn test_beatup_uses_stat_points_to_find_base_attack() {
+    use poke_engine::state::PokemonNature;
+    let mut state = State::default();
+    // level 50 with 80 base attack and 32 attack stat points
+    for pkmn in state.side_one.pokemon.pkmn.iter_mut() {
+        pkmn.level = 50;
+        pkmn.attack = 132;
+        pkmn.evs.1 = 32;
+    }
+    // 130 base attack with 32 attack stat points and an adamant nature
+    state.side_one.get_active().attack = 200;
+    state.side_one.get_active().nature = PokemonNature::ADAMANT;
+    state.side_one.pokemon[PokemonIndex::P1].hp = 0;
+    state.side_one.pokemon[PokemonIndex::P2].status = PokemonStatus::BURN;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::BEATUP,
+        Choices::SPLASH,
+    );
+
+    // 4 hits: the user (130 base attack, 18 power) and the 3 healthy party members
+    // (80 base attack, 13 power each), each hit uses the average power of 14.25
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 12,
+            }),
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 12,
+            }),
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 12,
+            }),
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 12,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
 fn test_scaleshot_only_boosts_once() {
     let mut state = State::default();
 
