@@ -568,50 +568,6 @@ pub fn ability_before_move(
                 defending_pkmn.recalculate_stats(&side_ref.get_other_side(), instructions);
             }
         }
-        // Technically incorrect
-        // A move missing should not trigger this formechange
-        #[cfg(not(any(feature = "gen8", feature = "gen9", feature = "champions")))]
-        Abilities::DISGUISE
-            if (choice.category == MoveCategory::Physical
-                || choice.category == MoveCategory::Special)
-                && (defending_pkmn.id == PokemonName::MIMIKYU
-                    || defending_pkmn.id == PokemonName::MIMIKYUTOTEM)
-                && !ignores_target_ability(active_pkmn, choice, &defending_pkmn.ability) =>
-        {
-            choice.base_power = 0.0;
-            instructions
-                .instruction_list
-                .push(Instruction::FormeChange(FormeChangeInstruction {
-                    side_ref: side_ref.get_other_side(),
-                    name_change: PokemonName::MIMIKYUBUSTED as i16 - defending_pkmn.id as i16,
-                }));
-            defending_pkmn.id = PokemonName::MIMIKYUBUSTED;
-        }
-        #[cfg(any(feature = "gen8", feature = "gen9", feature = "champions"))]
-        Abilities::DISGUISE
-            if (choice.category == MoveCategory::Physical
-                || choice.category == MoveCategory::Special)
-                && (defending_pkmn.id == PokemonName::MIMIKYU
-                    || defending_pkmn.id == PokemonName::MIMIKYUTOTEM)
-                && !ignores_target_ability(active_pkmn, choice, &defending_pkmn.ability) =>
-        {
-            choice.base_power = 0.0;
-            instructions
-                .instruction_list
-                .push(Instruction::FormeChange(FormeChangeInstruction {
-                    side_ref: side_ref.get_other_side(),
-                    name_change: PokemonName::MIMIKYUBUSTED as i16 - defending_pkmn.id as i16,
-                }));
-            defending_pkmn.id = PokemonName::MIMIKYUBUSTED;
-            let dmg = cmp::min(defending_pkmn.hp, defending_pkmn.maxhp / 8);
-            instructions
-                .instruction_list
-                .push(Instruction::Damage(DamageInstruction {
-                    side_ref: side_ref.get_other_side(),
-                    damage_amount: dmg,
-                }));
-            defending_pkmn.hp -= dmg;
-        }
         _ => {}
     }
     match active_pkmn.ability {

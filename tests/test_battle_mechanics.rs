@@ -14925,6 +14925,207 @@ fn test_already_busted_mimikyu_taking_damage_properly() {
     assert_eq!(expected_instructions, vec_of_instructions);
 }
 
+fn mimikyu_busting_instructions() -> Vec<Instruction> {
+    let mut instructions = vec![Instruction::FormeChange(FormeChangeInstruction {
+        side_ref: SideReference::SideOne,
+        name_change: PokemonName::MIMIKYUBUSTED as i16 - PokemonName::MIMIKYU as i16,
+    })];
+    if cfg!(feature = "gen8") || cfg!(feature = "gen9") || cfg!(feature = "champions") {
+        instructions.push(Instruction::Damage(DamageInstruction {
+            side_ref: SideReference::SideOne,
+            damage_amount: 12,
+        }));
+    }
+    instructions
+}
+
+#[test]
+fn test_disguise_does_not_break_on_an_immune_move() {
+    let mut state = State::default();
+    state.side_one.get_active().id = PokemonName::MIMIKYU;
+    state.side_one.get_active().ability = Abilities::DISGUISE;
+    state.side_one.get_active().types = (PokemonType::GHOST, PokemonType::FAIRY);
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::TACKLE,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_disguise_does_not_break_when_the_move_misses() {
+    let mut state = State::default();
+    state.side_one.get_active().id = PokemonName::MIMIKYU;
+    state.side_one.get_active().ability = Abilities::DISGUISE;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::MEGAPUNCH,
+    );
+
+    let expected_instructions = vec![
+        StateInstructions {
+            percentage: 14.999998,
+            instruction_list: vec![],
+        },
+        StateInstructions {
+            percentage: 85.0,
+            instruction_list: mimikyu_busting_instructions(),
+        },
+    ];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_disguise_does_not_break_through_protect() {
+    let mut state = State::default();
+    state.side_one.get_active().id = PokemonName::MIMIKYU;
+    state.side_one.get_active().ability = Abilities::DISGUISE;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::PROTECT,
+        Choices::TACKLE,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::ApplyVolatileStatus(ApplyVolatileStatusInstruction {
+                side_ref: SideReference::SideOne,
+                volatile_status: PokemonVolatileStatus::PROTECT,
+            }),
+            Instruction::RemoveVolatileStatus(RemoveVolatileStatusInstruction {
+                side_ref: SideReference::SideOne,
+                volatile_status: PokemonVolatileStatus::PROTECT,
+            }),
+            Instruction::ChangeSideCondition(ChangeSideConditionInstruction {
+                side_ref: SideReference::SideOne,
+                side_condition: PokemonSideCondition::Protect,
+                amount: 1,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_disguise_does_not_break_when_the_substitute_takes_the_hit() {
+    let mut state = State::default();
+    state.side_one.get_active().id = PokemonName::MIMIKYU;
+    state.side_one.get_active().ability = Abilities::DISGUISE;
+    state
+        .side_one
+        .volatile_statuses
+        .insert(PokemonVolatileStatus::SUBSTITUTE);
+    state.side_one.substitute_health = 60;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::TACKLE,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![Instruction::DamageSubstitute(DamageInstruction {
+            side_ref: SideReference::SideOne,
+            damage_amount: 48,
+        })],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_lifeorb_recoil_when_disguise_takes_the_hit() {
+    let mut state = State::default();
+    state.side_one.get_active().id = PokemonName::MIMIKYU;
+    state.side_one.get_active().ability = Abilities::DISGUISE;
+    state.side_two.get_active().item = Items::LIFEORB;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::TACKLE,
+    );
+
+    let mut instruction_list = mimikyu_busting_instructions();
+    instruction_list.push(Instruction::Heal(HealInstruction {
+        side_ref: SideReference::SideTwo,
+        heal_amount: -10,
+    }));
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list,
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_knockoff_removes_item_when_disguise_takes_the_hit() {
+    let mut state = State::default();
+    state.side_one.get_active().id = PokemonName::MIMIKYU;
+    state.side_one.get_active().ability = Abilities::DISGUISE;
+    state.side_one.get_active().item = Items::EXPERTBELT;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::KNOCKOFF,
+    );
+
+    let mut instruction_list = mimikyu_busting_instructions();
+    instruction_list.push(Instruction::ChangeItem(ChangeItemInstruction {
+        side_ref: SideReference::SideOne,
+        current_item: Items::EXPERTBELT,
+        new_item: Items::NONE,
+    }));
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list,
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_disguise_only_takes_the_first_hit_of_a_multihit_move() {
+    let mut state = State::default();
+    state.side_one.get_active().id = PokemonName::MIMIKYU;
+    state.side_one.get_active().ability = Abilities::DISGUISE;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::DOUBLEHIT,
+    );
+
+    // the second hit lands on the busted mimikyu
+    let mut instruction_list = mimikyu_busting_instructions();
+    instruction_list.push(Instruction::Damage(DamageInstruction {
+        side_ref: SideReference::SideOne,
+        damage_amount: 42,
+    }));
+    let expected_instructions = vec![
+        StateInstructions {
+            percentage: 10.000002,
+            instruction_list: vec![],
+        },
+        StateInstructions {
+            percentage: 90.0,
+            instruction_list,
+        },
+    ];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
 #[test]
 fn test_sunnyday() {
     let mut state = State::default();

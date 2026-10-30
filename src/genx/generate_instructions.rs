@@ -1,7 +1,7 @@
 use super::abilities::{
     ability_after_damage_hit, ability_before_move, ability_end_of_turn,
     ability_modify_attack_against, ability_modify_attack_being_used, ability_on_switch_in,
-    ability_on_switch_out, Abilities,
+    ability_on_switch_out, ignores_target_ability, Abilities,
 };
 use super::choice_effects::{
     charge_choice_to_volatile, choice_after_damage_hit, choice_before_move, choice_hazard_clear,
@@ -24,6 +24,7 @@ use crate::instruction::{
 use crate::instruction::{ChangeAbilityInstruction, ToggleTerastallizedInstruction};
 use crate::instruction::{DecrementFutureSightInstruction, FormeChangeInstruction};
 use crate::instruction::{DecrementPPInstruction, SetLastUsedMoveInstruction};
+use crate::pokemon::PokemonName;
 
 use super::damage_calc::calculate_futuresight_damage;
 use super::damage_calc::{calculate_damage, type_effectiveness_modifier, DamageRolls};
@@ -1487,6 +1488,34 @@ fn generate_instructions_from_damage(
             let defending_pokemon = defending_side.get_active();
             let mut knocked_out = false;
             damage_dealt = cmp::min(calculated_damage, defending_pokemon.hp);
+            // the disguise takes the hit instead, the move still counts as hitting
+            if defending_pokemon.ability == Abilities::DISGUISE
+                && (defending_pokemon.id == PokemonName::MIMIKYU
+                    || defending_pokemon.id == PokemonName::MIMIKYUTOTEM)
+                && !ignores_target_ability(attacking_pokemon, choice, &defending_pokemon.ability)
+            {
+                damage_dealt = 0;
+                incoming_instructions
+                    .instruction_list
+                    .push(Instruction::FormeChange(FormeChangeInstruction {
+                        side_ref: attacking_side_ref.get_other_side(),
+                        name_change: PokemonName::MIMIKYUBUSTED as i16
+                            - defending_pokemon.id as i16,
+                    }));
+                defending_pokemon.id = PokemonName::MIMIKYUBUSTED;
+
+                #[cfg(any(feature = "gen8", feature = "gen9", feature = "champions"))]
+                {
+                    let chip = cmp::min(defending_pokemon.hp, defending_pokemon.maxhp / 8);
+                    incoming_instructions
+                        .instruction_list
+                        .push(Instruction::Damage(DamageInstruction {
+                            side_ref: attacking_side_ref.get_other_side(),
+                            damage_amount: chip,
+                        }));
+                    defending_pokemon.hp -= chip;
+                }
+            }
             if damage_dealt != 0 {
                 if has_endure
                     || ((defending_pokemon.ability == Abilities::STURDY
