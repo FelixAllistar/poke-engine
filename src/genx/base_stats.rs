@@ -25,6 +25,7 @@ impl PokemonName {
             PokemonName::PALAFINHERO => (100, 160, 97, 106, 87, 100),
             PokemonName::EISCUE => (75, 80, 110, 65, 90, 50),
             PokemonName::EISCUENOICE => (75, 80, 70, 65, 50, 130),
+            PokemonName::DITTO => (48, 48, 48, 48, 48, 48),
 
             // megas
             PokemonName::VENUSAURMEGA => (80, 100, 123, 122, 120, 80),

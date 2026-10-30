@@ -1669,6 +1669,17 @@ impl State {
         self.get_side(side_reference).get_active().moves[move_index].disabled = true;
     }
 
+    fn change_move(
+        &mut self,
+        side_reference: &SideReference,
+        move_index: &PokemonMoveIndex,
+        move_change: i16,
+    ) {
+        let active = self.get_side(side_reference).get_active();
+        let new_move = Choices::from((active.moves[move_index].id as i16 + move_change) as u16);
+        active.replace_move(*move_index, new_move);
+    }
+
     fn set_wish(&mut self, side_reference: &SideReference, wish_amount_change: i16) {
         self.get_side(side_reference).wish.0 = 2;
         self.get_side(side_reference).wish.1 += wish_amount_change;
@@ -1884,6 +1895,11 @@ impl State {
             Instruction::DisableMove(instruction) => {
                 self.disable_move(&instruction.side_ref, &instruction.move_index)
             }
+            Instruction::ChangeMove(instruction) => self.change_move(
+                &instruction.side_ref,
+                &instruction.move_index,
+                instruction.move_change,
+            ),
             Instruction::ChangeWish(instruction) => {
                 self.set_wish(&instruction.side_ref, instruction.wish_amount_change);
             }
@@ -2063,6 +2079,11 @@ impl State {
             Instruction::DisableMove(instruction) => {
                 self.enable_move(&instruction.side_ref, &instruction.move_index)
             }
+            Instruction::ChangeMove(instruction) => self.change_move(
+                &instruction.side_ref,
+                &instruction.move_index,
+                -1 * instruction.move_change,
+            ),
             Instruction::Heal(instruction) => {
                 self.damage(&instruction.side_ref, instruction.heal_amount)
             }

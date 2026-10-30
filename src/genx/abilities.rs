@@ -10,14 +10,16 @@ use crate::choices::{
 use crate::define_enum_with_from_str;
 use crate::instruction::{
     ApplyVolatileStatusInstruction, BoostInstruction, ChangeAbilityInstruction,
-    ChangeItemInstruction, ChangeSideConditionInstruction, ChangeStatusInstruction, ChangeTerrain,
-    ChangeType, ChangeVolatileStatusDurationInstruction, ChangeWeather, DamageInstruction,
-    FormeChangeInstruction, HealInstruction, Instruction, StateInstructions,
+    ChangeItemInstruction, ChangeMoveInstruction, ChangeSideConditionInstruction,
+    ChangeStatInstruction, ChangeStatusInstruction, ChangeTerrain, ChangeType,
+    ChangeVolatileStatusDurationInstruction, ChangeWeather, DamageInstruction,
+    DecrementPPInstruction, FormeChangeInstruction, HealInstruction, Instruction,
+    StateInstructions,
 };
 use crate::pokemon::PokemonName;
 use crate::state::{
-    Pokemon, PokemonBoostableStat, PokemonSideCondition, PokemonStatus, PokemonType, Side,
-    SideReference, State,
+    Pokemon, PokemonBoostableStat, PokemonMoveIndex, PokemonSideCondition, PokemonStatus,
+    PokemonType, Side, SideReference, State,
 };
 use std::cmp;
 
@@ -1053,6 +1055,19 @@ pub fn ability_on_switch_out(
 ) {
     let (attacking_side, defending_side) = state.get_both_sides(side_ref);
     let active_pkmn = attacking_side.get_active();
+
+    // a transformed imposter turns back into ditto, even under neutralizing gas
+    // the copied moves are kept: imposter overwrites them the next time it switches in
+    if active_pkmn.base_ability == Abilities::IMPOSTER && active_pkmn.id != PokemonName::DITTO {
+        instructions
+            .instruction_list
+            .push(Instruction::FormeChange(FormeChangeInstruction {
+                side_ref: *side_ref,
+                name_change: PokemonName::DITTO as i16 - active_pkmn.id as i16,
+            }));
+        active_pkmn.id = PokemonName::DITTO;
+        active_pkmn.recalculate_stats(side_ref, instructions);
+    }
     if defending_side.get_active_immutable().ability == Abilities::NEUTRALIZINGGAS {
         return;
     }
@@ -1408,6 +1423,122 @@ pub fn ability_on_switch_in(
     if defending_pkmn.ability == Abilities::NEUTRALIZINGGAS {
         return;
     }
+
+    // imposter transforms into the opposing active, keeping only its own hp
+    // like trace, this happens first so that the copied ability activates on switch-in
+    // a target that is itself a transformed imposter cannot be transformed into
+    if active_pkmn.ability == Abilities::IMPOSTER
+        && defending_pkmn.hp > 0
+        && !defending_side
+            .volatile_statuses
+            .contains(&PokemonVolatileStatus::SUBSTITUTE)
+        && !(defending_pkmn.base_ability == Abilities::IMPOSTER
+            && defending_pkmn.id != PokemonName::DITTO)
+    {
+        let side_ref = *side_ref;
+        let pkmn = attacking_side.get_active_immutable();
+        let mut transform_instructions = vec![Instruction::FormeChange(FormeChangeInstruction {
+            side_ref,
+            name_change: defending_pkmn.id as i16 - pkmn.id as i16,
+        })];
+        if pkmn.types != defending_pkmn.types {
+            transform_instructions.push(Instruction::ChangeType(ChangeType {
+                side_ref,
+                new_types: defending_pkmn.types,
+                old_types: pkmn.types,
+            }));
+        }
+        for (change_stat, amount) in [
+            (
+                Instruction::ChangeAttack as fn(ChangeStatInstruction) -> Instruction,
+                defending_pkmn.attack - pkmn.attack,
+            ),
+            (
+                Instruction::ChangeDefense,
+                defending_pkmn.defense - pkmn.defense,
+            ),
+            (
+                Instruction::ChangeSpecialAttack,
+                defending_pkmn.special_attack - pkmn.special_attack,
+            ),
+            (
+                Instruction::ChangeSpecialDefense,
+                defending_pkmn.special_defense - pkmn.special_defense,
+            ),
+            (Instruction::ChangeSpeed, defending_pkmn.speed - pkmn.speed),
+        ] {
+            if amount != 0 {
+                transform_instructions
+                    .push(change_stat(ChangeStatInstruction { side_ref, amount }));
+            }
+        }
+        transform_instructions.push(Instruction::ChangeAbility(ChangeAbilityInstruction {
+            side_ref,
+            ability_change: defending_pkmn.ability as i16 - pkmn.ability as i16,
+        }));
+        if !attacking_side
+            .volatile_statuses
+            .contains(&PokemonVolatileStatus::TYPECHANGE)
+        {
+            transform_instructions.push(Instruction::ApplyVolatileStatus(
+                ApplyVolatileStatusInstruction {
+                    side_ref,
+                    volatile_status: PokemonVolatileStatus::TYPECHANGE,
+                },
+            ));
+        }
+
+        // copied moves have 5 pp
+        for move_index in [
+            PokemonMoveIndex::M0,
+            PokemonMoveIndex::M1,
+            PokemonMoveIndex::M2,
+            PokemonMoveIndex::M3,
+        ] {
+            let mv = &pkmn.moves[&move_index];
+            let target_mv = &defending_pkmn.moves[&move_index];
+            if mv.id != target_mv.id {
+                transform_instructions.push(Instruction::ChangeMove(ChangeMoveInstruction {
+                    side_ref,
+                    move_index,
+                    move_change: target_mv.id as i16 - mv.id as i16,
+                }));
+            }
+            if mv.pp != 5 {
+                transform_instructions.push(Instruction::DecrementPP(DecrementPPInstruction {
+                    side_ref,
+                    move_index,
+                    amount: mv.pp - 5,
+                }));
+            }
+        }
+        for stat in [
+            PokemonBoostableStat::Attack,
+            PokemonBoostableStat::Defense,
+            PokemonBoostableStat::SpecialAttack,
+            PokemonBoostableStat::SpecialDefense,
+            PokemonBoostableStat::Speed,
+            PokemonBoostableStat::Evasion,
+            PokemonBoostableStat::Accuracy,
+        ] {
+            let amount = defending_side.get_boost_from_boost_enum(&stat)
+                - attacking_side.get_boost_from_boost_enum(&stat);
+            if amount != 0 {
+                transform_instructions.push(Instruction::Boost(BoostInstruction {
+                    side_ref,
+                    stat,
+                    amount,
+                }));
+            }
+        }
+        for i in transform_instructions {
+            state.apply_one_instruction(&i);
+            instructions.instruction_list.push(i);
+        }
+    }
+    let (attacking_side, defending_side) = state.get_both_sides(side_ref);
+    let active_pkmn = attacking_side.get_active();
+    let defending_pkmn = defending_side.get_active_immutable();
 
     // trace copying an ability needs to happen before the ability check to activate on switch-in
     // e.g. tracing intimidate will activate intimidate
