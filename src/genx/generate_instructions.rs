@@ -2375,39 +2375,41 @@ pub fn generate_instructions_from_move(
     }
 
     // start multi-hit
-    let hit_count;
+    // each (hit_count, chance) pair is run as its own branch
+    let mut hit_branches = [(1, 1.0), (0, 0.0)];
+    let attacker = state.get_side_immutable(&attacking_side).get_active_immutable();
     match choice.multi_hit() {
-        MultiHitMove::None => {
-            hit_count = 1;
-        }
+        MultiHitMove::None => {}
         MultiHitMove::DoubleHit => {
-            hit_count = 2;
+            hit_branches[0].0 = 2;
         }
         MultiHitMove::TripleHit => {
-            hit_count = 3;
+            hit_branches[0].0 = 3;
         }
         MultiHitMove::TwoToFiveHits => {
-            hit_count =
-                if state.get_side(&attacking_side).get_active().ability == Abilities::SKILLLINK {
-                    5
-                } else if state.get_side(&attacking_side).get_active().item == Items::LOADEDDICE {
-                    4
-                } else {
-                    3 // too lazy to implement branching here. Average is 3.2 so this is a fine approximation
-                };
+            if attacker.ability == Abilities::SKILLLINK {
+                hit_branches[0].0 = 5;
+            } else if attacker.item == Items::LOADEDDICE {
+                // loaded dice re-rolls 2 or 3 hits into 4 or 5, making 4 and 5 equally likely
+                hit_branches = [(4, 0.5), (5, 0.5)];
+            } else {
+                // too lazy to implement branching here. Average is 3.2 so this is a fine approximation
+                hit_branches[0].0 = 3;
+            }
         }
         MultiHitMove::PopulationBomb => {
             // population bomb checks accuracy each time but lets approximate
-            hit_count = if state.get_side(&attacking_side).get_active().item == Items::WIDELENS {
-                9
-            } else {
-                6
+            // loaded dice skips the accuracy checks and hits 4-10 times
+            hit_branches[0].0 = match attacker.item {
+                Items::WIDELENS => 9,
+                Items::LOADEDDICE => 7,
+                _ => 6,
             };
         }
         MultiHitMove::TripleAxel => {
             // triple axel checks accuracy each time but until multi-accuracy is implemented this
             // is the best we can do
-            hit_count = 3
+            hit_branches[0].0 = 3;
         }
     }
 
@@ -2479,37 +2481,44 @@ pub fn generate_instructions_from_move(
         }
     }
 
-    if incoming_instructions.percentage != 0.0 {
-        run_move(
-            state,
-            attacking_side,
-            incoming_instructions,
-            hit_count,
-            does_damage,
-            regular_damage,
-            choice,
-            defender_choice,
-            &mut final_instructions,
-        );
-    } else {
-        state.reverse_instructions(&incoming_instructions.instruction_list);
-    }
-
-    // A branch representing either a roll that kills the opponent or a crit
-    if let Some(branch_ins) = branch_instructions {
-        if branch_ins.percentage != 0.0 {
-            state.apply_instructions(&branch_ins.instruction_list);
+    // the second damage branch represents either a roll that kills the opponent or a crit
+    // every branch starts from the same instructions, which are already applied to the state
+    let mut state_applied = true;
+    let mut damage_branches = [
+        Some((incoming_instructions, regular_damage)),
+        branch_instructions.map(|ins| (ins, branch_damage)),
+    ];
+    for (damage_ins, damage_amount) in damage_branches.iter_mut().flatten() {
+        for (hit_count, hit_chance) in hit_branches {
+            if damage_ins.percentage * hit_chance == 0.0 {
+                continue;
+            }
+            let mut ins = if hit_chance == 1.0 {
+                std::mem::take(damage_ins)
+            } else {
+                damage_ins.clone()
+            };
+            ins.update_percentage(hit_chance);
+            if !state_applied {
+                state.apply_instructions(&ins.instruction_list);
+            }
+            state_applied = false;
             run_move(
                 state,
                 attacking_side,
-                branch_ins,
+                ins,
                 hit_count,
                 does_damage,
-                branch_damage,
+                *damage_amount,
                 choice,
                 defender_choice,
                 &mut final_instructions,
             );
+        }
+    }
+    if state_applied {
+        if let Some((ins, _)) = &damage_branches[0] {
+            state.reverse_instructions(&ins.instruction_list);
         }
     }
 
