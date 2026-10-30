@@ -3045,6 +3045,21 @@ fn add_end_of_turn_instructions(
             incoming_instructions
                 .instruction_list
                 .push(sand_damage_instruction);
+        } else if state.weather_is_active(&Weather::SUN)
+            || state.weather_is_active(&Weather::HARSHSUN)
+        {
+            let active_pkmn = state.get_side(side_ref).get_active();
+            if active_pkmn.hp == 0 || active_pkmn.ability != Abilities::DRYSKIN {
+                continue;
+            }
+            let damage_amount = cmp::min(active_pkmn.maxhp / 8, active_pkmn.hp);
+            active_pkmn.hp -= damage_amount;
+            incoming_instructions
+                .instruction_list
+                .push(Instruction::Damage(DamageInstruction {
+                    side_ref: *side_ref,
+                    damage_amount,
+                }));
         }
     }
 
