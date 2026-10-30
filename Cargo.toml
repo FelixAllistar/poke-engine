@@ -51,3 +51,11 @@ members = [
 
 [target.wasm32-unknown-unknown.dependencies]
 web-time = "1.1.0"
+
+[[bin]]
+name = "selfplay_bench"
+path = "data/selfplay_bench.rs"
+
+[[bin]]
+name = "diffcheck"
+path = "data/diffcheck.rs"
