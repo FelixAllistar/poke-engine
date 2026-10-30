@@ -19037,6 +19037,27 @@ fn test_dauntlessshield_sets_sword_shield_boosted() {
     assert_eq!(expected_instructions, vec_of_instructions);
 }
 
+#[test]
+fn test_dauntlessshield_does_not_boost_past_plus_six_after_baton_pass() {
+    let mut state = State::default();
+    state.side_one.pokemon[PokemonIndex::P1].ability = Abilities::DAUNTLESSSHIELD;
+    state.side_one.defense_boost = 6;
+    state.side_one.baton_passing = true;
+
+    let vec_of_instructions = generate_instructions_with_state_assertion(
+        &mut state,
+        &MoveChoice::Switch(PokemonIndex::P1),
+        &MoveChoice::None,
+    );
+
+    for state_instructions in &vec_of_instructions {
+        assert!(!state_instructions
+            .instruction_list
+            .iter()
+            .any(|i| matches!(i, Instruction::Boost(_))));
+    }
+}
+
 #[cfg(any(feature = "gen9", feature = "champions"))]
 #[test]
 fn test_dauntlessshield_does_not_boost_again_after_switching_back_in() {

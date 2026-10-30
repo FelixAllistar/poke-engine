@@ -1627,15 +1627,15 @@ pub fn ability_on_switch_in(
         Abilities::INTREPIDSWORD => {
             #[cfg(any(feature = "gen9", feature = "champions"))]
             set_sword_shield_boosted(attacking_side, side_ref, instructions);
-            // no need to check for boost at +6 because we are switching in
-            attacking_side.attack_boost += 1;
-            instructions
-                .instruction_list
-                .push(Instruction::Boost(BoostInstruction {
-                    side_ref: *side_ref,
-                    stat: PokemonBoostableStat::Attack,
-                    amount: 1,
-                }));
+            // Baton Pass (or Imposter copying the foe) can bring the stat in at +6 already
+            apply_boost_instruction(
+                attacking_side,
+                &PokemonBoostableStat::Attack,
+                &1,
+                side_ref,
+                side_ref,
+                instructions,
+            );
         }
         Abilities::SLOWSTART => {
             instructions
@@ -1780,15 +1780,15 @@ pub fn ability_on_switch_in(
         Abilities::DAUNTLESSSHIELD => {
             #[cfg(any(feature = "gen9", feature = "champions"))]
             set_sword_shield_boosted(attacking_side, side_ref, instructions);
-            // no need to check for boost at +6 because we are switching in
-            attacking_side.defense_boost += 1;
-            instructions
-                .instruction_list
-                .push(Instruction::Boost(BoostInstruction {
-                    side_ref: *side_ref,
-                    stat: PokemonBoostableStat::Defense,
-                    amount: 1,
-                }));
+            // Baton Pass (or Imposter copying the foe) can bring the stat in at +6 already
+            apply_boost_instruction(
+                attacking_side,
+                &PokemonBoostableStat::Defense,
+                &1,
+                side_ref,
+                side_ref,
+                instructions,
+            );
         }
         Abilities::GRASSYSURGE => {
             if state.terrain.terrain_type != Terrain::GRASSYTERRAIN {
