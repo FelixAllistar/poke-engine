@@ -1065,6 +1065,7 @@ fn get_instructions_from_secondaries(
     side_reference: &SideReference,
     incoming_instructions: StateInstructions,
     hit_sub: bool,
+    hit_count: i8,
 ) -> Vec<StateInstructions> {
     let mut return_instruction_list = Vec::with_capacity(4);
     return_instruction_list.push(incoming_instructions);
@@ -1073,7 +1074,13 @@ fn get_instructions_from_secondaries(
         if secondary.target == MoveTarget::Opponent && hit_sub {
             continue;
         }
-        let secondary_percent_hit = (secondary.chance / 100.0).min(1.0);
+        let mut secondary_percent_hit = (secondary.chance / 100.0).min(1.0);
+        // every hit rolls a status or volatile status again, but it can only land once
+        if hit_count > 1
+            && matches!(secondary.effect, Effect::Status(_) | Effect::VolatileStatus(_))
+        {
+            secondary_percent_hit = 1.0 - (1.0 - secondary_percent_hit).powi(hit_count as i32);
+        }
 
         let mut i = 0;
         while i < return_instruction_list.len() {
@@ -2419,39 +2426,54 @@ pub fn generate_instructions_from_move(
     }
 
     // start multi-hit
-    let hit_count;
+    // each (hit_count, chance) pair is run as its own branch
+    // unused entries are padding with chance 0 and are skipped
+    let mut hit_branches = [(1, 1.0), (0, 0.0), (0, 0.0)];
+    let attacker_side = state.get_side_immutable(&attacking_side);
+    let attacker = attacker_side.get_active_immutable();
     match choice.multi_hit() {
-        MultiHitMove::None => {
-            hit_count = 1;
+        #[cfg(not(feature = "gen4"))]
+        MultiHitMove::None if choice.move_id == Choices::BEATUP => {
+            // one hit for the user and each healthy party member
+            hit_branches[0].0 = attacker_side.beatup_party().count() as i8;
         }
+        MultiHitMove::None => {}
         MultiHitMove::DoubleHit => {
-            hit_count = 2;
+            hit_branches[0].0 = 2;
         }
         MultiHitMove::TripleHit => {
-            hit_count = 3;
+            hit_branches[0].0 = 3;
         }
         MultiHitMove::TwoToFiveHits => {
-            hit_count =
-                if state.get_side(&attacking_side).get_active().ability == Abilities::SKILLLINK {
-                    5
-                } else if state.get_side(&attacking_side).get_active().item == Items::LOADEDDICE {
-                    4
-                } else {
-                    3 // too lazy to implement branching here. Average is 3.2 so this is a fine approximation
-                };
+            if attacker.ability == Abilities::SKILLLINK {
+                hit_branches[0].0 = 5;
+            } else if attacker.item == Items::LOADEDDICE {
+                // loaded dice re-rolls 2 or 3 hits into 4 or 5, making 4 and 5 equally likely
+                hit_branches = [(4, 0.5), (5, 0.5), (0, 0.0)];
+            } else {
+                // too lazy to implement branching here. Average is 3.2 so this is a fine approximation
+                hit_branches[0].0 = 3;
+            }
         }
         MultiHitMove::PopulationBomb => {
             // population bomb checks accuracy each time but lets approximate
-            hit_count = if state.get_side(&attacking_side).get_active().item == Items::WIDELENS {
-                9
-            } else {
-                6
+            // loaded dice skips the accuracy checks and hits 4-10 times
+            hit_branches[0].0 = match attacker.item {
+                Items::WIDELENS => 9,
+                Items::LOADEDDICE => 7,
+                _ => 6,
             };
         }
         MultiHitMove::TripleAxel => {
-            // triple axel checks accuracy each time but until multi-accuracy is implemented this
-            // is the best we can do
-            hit_count = 3
+            // the first hit already passed its accuracy check. Each later hit checks accuracy
+            // again and the move stops at the first miss, unless skill link or loaded dice
+            if attacker.ability == Abilities::SKILLLINK || attacker.item == Items::LOADEDDICE {
+                hit_branches[0].0 = 3;
+            } else {
+                let accuracy_boost = boosted_accuracy(attacker_side.accuracy_boost);
+                let acc = (choice.accuracy / 100.0 * accuracy_boost).min(1.0);
+                hit_branches = [(1, 1.0 - acc), (2, acc * (1.0 - acc)), (3, acc * acc)];
+            }
         }
     }
 
@@ -2523,37 +2545,50 @@ pub fn generate_instructions_from_move(
         }
     }
 
-    if incoming_instructions.percentage != 0.0 {
-        run_move(
-            state,
-            attacking_side,
-            incoming_instructions,
-            hit_count,
-            does_damage,
-            regular_damage,
-            choice,
-            defender_choice,
-            &mut final_instructions,
-        );
-    } else {
-        state.reverse_instructions(&incoming_instructions.instruction_list);
-    }
-
-    // A branch representing either a roll that kills the opponent or a crit
-    if let Some(branch_ins) = branch_instructions {
-        if branch_ins.percentage != 0.0 {
-            state.apply_instructions(&branch_ins.instruction_list);
+    // the second damage branch represents either a roll that kills the opponent or a crit
+    // every branch starts from the same instructions, which are already applied to the state
+    let mut state_applied = true;
+    let mut damage_branches = [
+        Some((incoming_instructions, regular_damage)),
+        branch_instructions.map(|ins| (ins, branch_damage)),
+    ];
+    for (damage_ins, damage_amount) in damage_branches.iter_mut().flatten() {
+        for (hit_count, hit_chance) in hit_branches {
+            if damage_ins.percentage * hit_chance == 0.0 {
+                continue;
+            }
+            // triple axel hits with 20, 40 then 60 power. damage was calculated with 40 power
+            let damage_amount = if choice.multi_hit() == MultiHitMove::TripleAxel {
+                (*damage_amount as f32 * (hit_count + 1) as f32 / 4.0) as i16
+            } else {
+                *damage_amount
+            };
+            let mut ins = if hit_chance == 1.0 {
+                std::mem::take(damage_ins)
+            } else {
+                damage_ins.clone()
+            };
+            ins.update_percentage(hit_chance);
+            if !state_applied {
+                state.apply_instructions(&ins.instruction_list);
+            }
+            state_applied = false;
             run_move(
                 state,
                 attacking_side,
-                branch_ins,
+                ins,
                 hit_count,
                 does_damage,
-                branch_damage,
+                damage_amount,
                 choice,
                 defender_choice,
                 &mut final_instructions,
             );
+        }
+    }
+    if state_applied {
+        if let Some((ins, _)) = &damage_branches[0] {
+            state.reverse_instructions(&ins.instruction_list);
         }
     }
 
@@ -3761,9 +3796,9 @@ fn run_move(
         }
     } // end multi-hit
       // this is wrong, but I am deciding it is good enough for this engine (for now)
-      // each multi-hit move should trigger a chance for a secondary effect,
-      // but the way this engine was structured makes it difficult to implement
-      // without some performance hits.
+      // status secondaries use the chance of any hit landing them, but are applied after
+      // every hit, so a status from an early hit does not affect the later hits.
+      // boosts, heals and other secondaries are applied once per move, not once per hit.
 
     if let Some(boost) = &choice.boost {
         get_instructions_from_boosts(state, boost, &attacking_side, &mut instructions);
@@ -3911,6 +3946,7 @@ fn run_move(
             &attacking_side,
             instructions,
             hit_sub,
+            hit_count,
         );
         final_instructions.extend(instructions_vec_after_secondaries);
     } else {

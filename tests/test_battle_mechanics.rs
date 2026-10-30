@@ -16366,6 +16366,75 @@ fn test_skilllink_always_has_5_hits() {
 
 #[test]
 #[cfg(any(feature = "gen9", feature = "champions"))]
+fn test_loadeddice_hits_4_or_5_times() {
+    let mut state = State::default();
+    state.side_one.get_active().item = Items::LOADEDDICE;
+    state.side_two.get_active().hp = 500;
+    state.side_two.get_active().maxhp = 500;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::ROCKBLAST,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![
+        StateInstructions {
+            percentage: 10.000002,
+            instruction_list: vec![],
+        },
+        StateInstructions {
+            percentage: 45.0,
+            instruction_list: vec![
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 21,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 21,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 21,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 21,
+                }),
+            ],
+        },
+        StateInstructions {
+            percentage: 45.0,
+            instruction_list: vec![
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 21,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 21,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 21,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 21,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 21,
+                }),
+            ],
+        },
+    ];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+#[cfg(any(feature = "gen9", feature = "champions"))]
 fn test_population_bomb_with_widelens() {
     let mut state = State::default();
     state.side_one.get_active().item = Items::WIDELENS;
@@ -16403,6 +16472,62 @@ fn test_population_bomb_with_widelens() {
                 Instruction::Damage(DamageInstruction {
                     side_ref: SideReference::SideTwo,
                     damage_amount: 4, // 24 * 4 = 96, 4 remaining on last hit
+                }),
+            ],
+        },
+    ];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+#[cfg(any(feature = "gen9", feature = "champions"))]
+fn test_population_bomb_with_loadeddice() {
+    let mut state = State::default();
+    state.side_one.get_active().item = Items::LOADEDDICE;
+    state.side_two.get_active().hp = 500;
+    state.side_two.get_active().maxhp = 500;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::POPULATIONBOMB,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![
+        StateInstructions {
+            percentage: 10.000002,
+            instruction_list: vec![],
+        },
+        StateInstructions {
+            percentage: 90.0,
+            instruction_list: vec![
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 24,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 24,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 24,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 24,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 24,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 24,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 24,
                 }),
             ],
         },
@@ -16453,6 +16578,256 @@ fn test_triple_multihit_move_versus_substitute_and_rockyhelmet() {
             }),
         ],
     }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_tripleaxel_checks_accuracy_on_every_hit() {
+    let mut state = State::default();
+    state.side_two.get_active().hp = 500;
+    state.side_two.get_active().maxhp = 500;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::TRIPLEAXEL,
+        Choices::SPLASH,
+    );
+
+    // 20, 40 and 60 power hits are approximated as their average power
+    let expected_instructions = vec![
+        StateInstructions {
+            percentage: 10.000002,
+            instruction_list: vec![],
+        },
+        StateInstructions {
+            percentage: 9.000002,
+            instruction_list: vec![
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 16,
+                }),
+            ],
+        },
+        StateInstructions {
+            percentage: 8.100001,
+            instruction_list: vec![
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 24,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 24,
+                }),
+            ],
+        },
+        StateInstructions {
+            percentage: 72.899994,
+            instruction_list: vec![
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 32,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 32,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 32,
+                }),
+            ],
+        },
+    ];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_tripleaxel_with_skilllink_always_hits_3_times() {
+    let mut state = State::default();
+    state.side_one.get_active().ability = Abilities::SKILLLINK;
+    state.side_two.get_active().hp = 500;
+    state.side_two.get_active().maxhp = 500;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::TRIPLEAXEL,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![
+        StateInstructions {
+            percentage: 10.000002,
+            instruction_list: vec![],
+        },
+        StateInstructions {
+            percentage: 90.0,
+            instruction_list: vec![
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 32,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 32,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 32,
+                }),
+            ],
+        },
+    ];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+#[cfg(not(any(feature = "gen4", feature = "champions")))]
+fn test_beatup_hits_once_per_healthy_party_member() {
+    use poke_engine::state::PokemonNature;
+    let mut state = State::default();
+    // 80 base attack with 85 attack EVs
+    for pkmn in state.side_one.pokemon.pkmn.iter_mut() {
+        pkmn.attack = 217;
+    }
+    // 130 base attack with 252 attack EVs and an adamant nature
+    state.side_one.get_active().attack = 394;
+    state.side_one.get_active().evs.1 = 252;
+    state.side_one.get_active().nature = PokemonNature::ADAMANT;
+    state.side_one.pokemon[PokemonIndex::P1].hp = 0;
+    state.side_one.pokemon[PokemonIndex::P2].status = PokemonStatus::BURN;
+    state.side_two.get_active().defense = 300;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::BEATUP,
+        Choices::SPLASH,
+    );
+
+    // 4 hits: the user (130 base attack, 18 power) and the 3 healthy party members
+    // (80 base attack, 13 power each), each hit uses the average power of 14.25
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 15,
+            }),
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 15,
+            }),
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 15,
+            }),
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 15,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+#[cfg(feature = "champions")]
+fn test_beatup_uses_stat_points_to_find_base_attack() {
+    use poke_engine::state::PokemonNature;
+    let mut state = State::default();
+    // level 50 with 80 base attack and 32 attack stat points
+    for pkmn in state.side_one.pokemon.pkmn.iter_mut() {
+        pkmn.level = 50;
+        pkmn.attack = 132;
+        pkmn.evs.1 = 32;
+    }
+    // 130 base attack with 32 attack stat points and an adamant nature
+    state.side_one.get_active().attack = 200;
+    state.side_one.get_active().nature = PokemonNature::ADAMANT;
+    state.side_one.pokemon[PokemonIndex::P1].hp = 0;
+    state.side_one.pokemon[PokemonIndex::P2].status = PokemonStatus::BURN;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::BEATUP,
+        Choices::SPLASH,
+    );
+
+    // 4 hits: the user (130 base attack, 18 power) and the 3 healthy party members
+    // (80 base attack, 13 power each), each hit uses the average power of 14.25
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 12,
+            }),
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 12,
+            }),
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 12,
+            }),
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 12,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_multi_hit_move_rolls_status_secondary_on_every_hit() {
+    let mut state = State::default();
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::TWINEEDLE,
+        Choices::SPLASH,
+    );
+
+    // 20% poison chance on each of 2 hits: 1 - 0.8 * 0.8 = 36%
+    let expected_instructions = vec![
+        StateInstructions {
+            percentage: 64.00001,
+            instruction_list: vec![
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 21,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 21,
+                }),
+            ],
+        },
+        StateInstructions {
+            percentage: 35.999996,
+            instruction_list: vec![
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 21,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 21,
+                }),
+                Instruction::ChangeStatus(ChangeStatusInstruction {
+                    side_ref: SideReference::SideTwo,
+                    pokemon_index: PokemonIndex::P0,
+                    old_status: PokemonStatus::NONE,
+                    new_status: PokemonStatus::POISON,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 12,
+                }),
+            ],
+        },
+    ];
     assert_eq!(expected_instructions, vec_of_instructions);
 }
 
