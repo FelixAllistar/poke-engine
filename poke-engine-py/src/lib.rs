@@ -606,6 +606,7 @@ pub struct PyPokemon {
     pub mega_evolved: bool,
     pub terastallized: bool,
     pub tera_type: String,
+    pub sword_shield_boosted: bool,
     pub moves: Vec<PyMove>,
 }
 
@@ -645,6 +646,7 @@ impl From<Pokemon> for PyPokemon {
             mega_evolved: other.mega_evolved,
             terastallized: other.terastallized,
             tera_type: other.tera_type.to_string(),
+            sword_shield_boosted: other.sword_shield_boosted,
             moves: other
                 .moves
                 .into_iter()
@@ -692,6 +694,7 @@ impl Into<Pokemon> for PyPokemon {
             mega_evolved: self.mega_evolved,
             terastallized: self.terastallized,
             tera_type: PokemonType::from_str(&self.tera_type).unwrap(),
+            sword_shield_boosted: self.sword_shield_boosted,
             moves: PokemonMoves {
                 m0: moves_vec[0].clone().into(),
                 m1: moves_vec[1].clone().into(),
@@ -730,6 +733,7 @@ impl PyPokemon {
         mega_evolved=false,
         terastallized=false,
         tera_type="typeless".to_string(),
+        sword_shield_boosted=false,
     ))]
     fn new(
         id: String,
@@ -756,6 +760,7 @@ impl PyPokemon {
         mega_evolved: bool,
         terastallized: bool,
         tera_type: String,
+        sword_shield_boosted: bool,
     ) -> Self {
         if base_ability == "" {
             base_ability = ability.clone();
@@ -784,6 +789,7 @@ impl PyPokemon {
             mega_evolved,
             terastallized,
             tera_type,
+            sword_shield_boosted,
             moves,
         }
     }

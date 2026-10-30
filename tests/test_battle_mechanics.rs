@@ -33,6 +33,9 @@ use poke_engine::state::{
 #[cfg(feature = "terastallization")]
 use poke_engine::instruction::ToggleTerastallizedInstruction;
 
+#[cfg(any(feature = "gen9", feature = "champions"))]
+use poke_engine::instruction::ToggleSwordShieldBoostedInstruction;
+
 #[cfg(not(feature = "champions"))]
 use poke_engine::engine::generate_instructions::MAX_SLEEP_TURNS;
 
@@ -18163,6 +18166,7 @@ fn test_magicguard_switching_into_all_hazards() {
     assert_eq!(expected_instructions, vec_of_instructions);
 }
 
+#[cfg(not(any(feature = "gen9", feature = "champions")))]
 #[test]
 fn test_dauntlessshield() {
     let mut state = State::default();
@@ -18192,6 +18196,7 @@ fn test_dauntlessshield() {
     assert_eq!(expected_instructions, vec_of_instructions);
 }
 
+#[cfg(not(any(feature = "gen9", feature = "champions")))]
 #[test]
 fn test_intrepidsword() {
     let mut state = State::default();
@@ -18217,6 +18222,120 @@ fn test_intrepidsword() {
                 amount: 1,
             }),
         ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[cfg(any(feature = "gen9", feature = "champions"))]
+#[test]
+fn test_dauntlessshield_sets_sword_shield_boosted() {
+    let mut state = State::default();
+    state.side_one.pokemon[PokemonIndex::P1].ability = Abilities::DAUNTLESSSHIELD;
+
+    let vec_of_instructions = generate_instructions_with_state_assertion(
+        &mut state,
+        &MoveChoice::Switch(PokemonIndex::P1),
+        &MoveChoice::Move(PokemonMoveIndex::M0),
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Switch(SwitchInstruction {
+                side_ref: SideReference::SideOne,
+                previous_index: PokemonIndex::P0,
+                next_index: PokemonIndex::P1,
+            }),
+            Instruction::ToggleSwordShieldBoosted(ToggleSwordShieldBoostedInstruction {
+                side_ref: SideReference::SideOne,
+            }),
+            Instruction::Boost(BoostInstruction {
+                side_ref: SideReference::SideOne,
+                stat: PokemonBoostableStat::Defense,
+                amount: 1,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[cfg(any(feature = "gen9", feature = "champions"))]
+#[test]
+fn test_dauntlessshield_does_not_boost_again_after_switching_back_in() {
+    let mut state = State::default();
+    state.side_one.pokemon[PokemonIndex::P1].ability = Abilities::DAUNTLESSSHIELD;
+    state.side_one.pokemon[PokemonIndex::P1].sword_shield_boosted = true;
+
+    let vec_of_instructions = generate_instructions_with_state_assertion(
+        &mut state,
+        &MoveChoice::Switch(PokemonIndex::P1),
+        &MoveChoice::Move(PokemonMoveIndex::M0),
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![Instruction::Switch(SwitchInstruction {
+            side_ref: SideReference::SideOne,
+            previous_index: PokemonIndex::P0,
+            next_index: PokemonIndex::P1,
+        })],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[cfg(any(feature = "gen9", feature = "champions"))]
+#[test]
+fn test_intrepidsword_sets_sword_shield_boosted() {
+    let mut state = State::default();
+    state.side_one.pokemon[PokemonIndex::P1].ability = Abilities::INTREPIDSWORD;
+
+    let vec_of_instructions = generate_instructions_with_state_assertion(
+        &mut state,
+        &MoveChoice::Switch(PokemonIndex::P1),
+        &MoveChoice::Move(PokemonMoveIndex::M0),
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Switch(SwitchInstruction {
+                side_ref: SideReference::SideOne,
+                previous_index: PokemonIndex::P0,
+                next_index: PokemonIndex::P1,
+            }),
+            Instruction::ToggleSwordShieldBoosted(ToggleSwordShieldBoostedInstruction {
+                side_ref: SideReference::SideOne,
+            }),
+            Instruction::Boost(BoostInstruction {
+                side_ref: SideReference::SideOne,
+                stat: PokemonBoostableStat::Attack,
+                amount: 1,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[cfg(any(feature = "gen9", feature = "champions"))]
+#[test]
+fn test_intrepidsword_does_not_boost_again_after_switching_back_in() {
+    let mut state = State::default();
+    state.side_one.pokemon[PokemonIndex::P1].ability = Abilities::INTREPIDSWORD;
+    state.side_one.pokemon[PokemonIndex::P1].sword_shield_boosted = true;
+
+    let vec_of_instructions = generate_instructions_with_state_assertion(
+        &mut state,
+        &MoveChoice::Switch(PokemonIndex::P1),
+        &MoveChoice::Move(PokemonMoveIndex::M0),
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![Instruction::Switch(SwitchInstruction {
+            side_ref: SideReference::SideOne,
+            previous_index: PokemonIndex::P0,
+            next_index: PokemonIndex::P1,
+        })],
     }];
     assert_eq!(expected_instructions, vec_of_instructions);
 }
