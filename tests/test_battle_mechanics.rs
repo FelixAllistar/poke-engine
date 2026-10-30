@@ -1892,6 +1892,35 @@ fn test_grimneigh_boost() {
 }
 
 #[test]
+fn test_soulheart_boost_on_ko() {
+    let mut state = State::default();
+    state.side_two.get_active().hp = 1;
+    state.side_one.get_active().ability = Abilities::SOULHEART;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::TACKLE,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 1,
+            }),
+            Instruction::Boost(BoostInstruction {
+                side_ref: SideReference::SideOne,
+                stat: PokemonBoostableStat::SpecialAttack,
+                amount: 1,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
 fn test_chillingneigh_does_not_overboost() {
     let mut state = State::default();
     state.side_two.get_active().hp = 1;
