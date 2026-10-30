@@ -1438,6 +1438,31 @@ pub fn ability_on_switch_in(
                 active_pkmn.recalculate_stats(side_ref, instructions);
             }
         }
+        Abilities::SHIELDSDOWN => {
+            if active_pkmn.hp <= active_pkmn.maxhp / 2
+                && active_pkmn.id == PokemonName::MINIORMETEOR
+            {
+                instructions.instruction_list.push(Instruction::FormeChange(
+                    FormeChangeInstruction {
+                        side_ref: *side_ref,
+                        name_change: PokemonName::MINIOR as i16 - active_pkmn.id as i16,
+                    },
+                ));
+                active_pkmn.id = PokemonName::MINIOR;
+                active_pkmn.recalculate_stats(side_ref, instructions);
+            }
+            if active_pkmn.hp > active_pkmn.maxhp / 2 && active_pkmn.id != PokemonName::MINIORMETEOR
+            {
+                instructions.instruction_list.push(Instruction::FormeChange(
+                    FormeChangeInstruction {
+                        side_ref: *side_ref,
+                        name_change: PokemonName::MINIORMETEOR as i16 - active_pkmn.id as i16,
+                    },
+                ));
+                active_pkmn.id = PokemonName::MINIORMETEOR;
+                active_pkmn.recalculate_stats(side_ref, instructions);
+            }
+        }
         Abilities::PROTOSYNTHESIS => {
             let sun_is_active = state.weather_is_active(&Weather::SUN);
             let attacking_side = state.get_side(side_ref);
