@@ -16,7 +16,6 @@ use crate::state::{
 };
 use std::cmp;
 
-#[cfg(feature = "gen4")]
 use super::state::PokemonVolatileStatus;
 
 define_enum_with_from_str! {
@@ -907,6 +906,11 @@ pub fn item_end_of_turn(
     instructions: &mut StateInstructions,
 ) {
     let attacking_side = state.get_side(side_ref);
+    // gen4 Heal Block only stops drain, Leech Seed and Wish
+    let heal_blocked = cfg!(not(feature = "gen4"))
+        && attacking_side
+            .volatile_statuses
+            .contains(&PokemonVolatileStatus::HEALBLOCK);
     let active_pkmn = attacking_side.get_active();
     match active_pkmn.item {
         Items::LUMBERRY if active_pkmn.status != PokemonStatus::NONE => {
@@ -935,7 +939,7 @@ pub fn item_end_of_turn(
         }
         Items::BLACKSLUDGE => {
             if active_pkmn.has_type(&PokemonType::POISON) {
-                if active_pkmn.hp < active_pkmn.maxhp {
+                if active_pkmn.hp < active_pkmn.maxhp && !heal_blocked {
                     let heal_amount =
                         cmp::min(active_pkmn.maxhp / 16, active_pkmn.maxhp - active_pkmn.hp);
                     let ins = Instruction::Heal(HealInstruction {
@@ -971,7 +975,7 @@ pub fn item_end_of_turn(
         }
         Items::LEFTOVERS => {
             let attacker = state.get_side(side_ref).get_active();
-            if attacker.hp < attacker.maxhp {
+            if attacker.hp < attacker.maxhp && !heal_blocked {
                 let heal_amount = cmp::min(attacker.maxhp / 16, attacker.maxhp - attacker.hp);
                 let ins = Instruction::Heal(HealInstruction {
                     side_ref: side_ref.clone(),

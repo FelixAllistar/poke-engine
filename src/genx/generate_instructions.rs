@@ -2907,6 +2907,12 @@ fn add_end_of_turn_instructions(
         if state.terrain.terrain_type == Terrain::GRASSYTERRAIN {
             for side_ref in sides {
                 let side = state.get_side(side_ref);
+                if side
+                    .volatile_statuses
+                    .contains(&PokemonVolatileStatus::HEALBLOCK)
+                {
+                    continue;
+                }
                 let active_pkmn = side.get_active();
                 if active_pkmn.hp == 0 || !active_pkmn.is_grounded() {
                     continue;
@@ -3084,13 +3090,20 @@ fn add_end_of_turn_instructions(
     for side_ref in sides {
         let side = state.get_side(side_ref);
         let side_wish = side.wish;
+        let heal_blocked = side
+            .volatile_statuses
+            .contains(&PokemonVolatileStatus::HEALBLOCK);
         let active_pkmn = side.get_active();
 
         if side_wish.0 > 0 {
             let decrement_wish_instruction = Instruction::DecrementWish(DecrementWishInstruction {
                 side_ref: *side_ref,
             });
-            if side_wish.0 == 1 && 0 < active_pkmn.hp && active_pkmn.hp < active_pkmn.maxhp {
+            if side_wish.0 == 1
+                && !heal_blocked
+                && 0 < active_pkmn.hp
+                && active_pkmn.hp < active_pkmn.maxhp
+            {
                 #[cfg(not(feature = "gen4"))]
                 let heal_amount = cmp::min(active_pkmn.maxhp - active_pkmn.hp, side_wish.1);
 

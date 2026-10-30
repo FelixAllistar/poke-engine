@@ -20984,6 +20984,115 @@ fn test_healblock_prevents_synthesis() {
 }
 
 #[test]
+#[cfg(not(feature = "gen4"))]
+fn test_healblock_prevents_leftovers() {
+    let mut state = State::default();
+    state.side_one.get_active().item = Items::LEFTOVERS;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::PSYCHICNOISE,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideOne,
+                damage_amount: 60,
+            }),
+            Instruction::ApplyVolatileStatus(ApplyVolatileStatusInstruction {
+                side_ref: SideReference::SideOne,
+                volatile_status: PokemonVolatileStatus::HEALBLOCK,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+#[cfg(not(feature = "gen4"))]
+fn test_healblock_prevents_blacksludge_heal() {
+    let mut state = State::default();
+    state.side_one.get_active().hp = 50;
+    state.side_one.get_active().item = Items::BLACKSLUDGE;
+    state.side_one.get_active().types.0 = PokemonType::POISON;
+    state
+        .side_one
+        .volatile_statuses
+        .insert(PokemonVolatileStatus::HEALBLOCK);
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_healblock_prevents_grassyterrain_heal() {
+    let mut state = State::default();
+    state.terrain.terrain_type = Terrain::GRASSYTERRAIN;
+    state.terrain.turns_remaining = 5;
+    state.side_one.get_active().hp = 50;
+    state.side_two.get_active().hp = 50;
+    state
+        .side_one
+        .volatile_statuses
+        .insert(PokemonVolatileStatus::HEALBLOCK);
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Heal(HealInstruction {
+                side_ref: SideReference::SideTwo,
+                heal_amount: 6,
+            }),
+            Instruction::DecrementTerrainTurnsRemaining,
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_healblock_prevents_wish_heal() {
+    let mut state = State::default();
+    state.side_one.wish = (1, 50);
+    state.side_one.get_active().hp = 50;
+    state
+        .side_one
+        .volatile_statuses
+        .insert(PokemonVolatileStatus::HEALBLOCK);
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![Instruction::DecrementWish(DecrementWishInstruction {
+            side_ref: SideReference::SideOne,
+        })],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
 fn test_healblock_does_not_prevent_tackle() {
     let mut state = State::default();
 
