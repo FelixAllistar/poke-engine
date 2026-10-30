@@ -78,6 +78,8 @@ pub const THAW_CHANCE: f32 = 0.20;
 #[cfg(feature = "champions")]
 pub const THAW_CHANCE: f32 = 0.25;
 
+pub const SHED_SKIN_CHANCE: f32 = 0.33;
+
 #[cfg(not(feature = "champions"))]
 pub const FULLY_PARALYZED_CHANCE: f32 = 0.25;
 
@@ -3742,6 +3744,51 @@ fn add_end_of_turn_instructions(
     } // end volatile statuses
 }
 
+// Shed Skin rolls before status damage and nothing earlier in the turn looks at status,
+// so each roll is branched here and every branch then runs the whole end of turn
+fn add_end_of_turn_instructions_with_shed_skin(
+    state: &mut State,
+    incoming_instructions: &mut StateInstructions,
+    first_move_side: &SideReference,
+    sides: &[SideReference],
+) -> Vec<StateInstructions> {
+    if state.side_one.force_switch || state.side_two.force_switch {
+        return vec![];
+    }
+    let mut shed_skin_branches = vec![];
+    for (i, side_ref) in sides.iter().enumerate() {
+        let (side, other_side) = state.get_both_sides(side_ref);
+        let active_pkmn = side.get_active_immutable();
+        if active_pkmn.ability != Abilities::SHEDSKIN
+            || active_pkmn.status == PokemonStatus::NONE
+            || active_pkmn.hp == 0
+            || other_side.get_active_immutable().ability == Abilities::NEUTRALIZINGGAS
+        {
+            continue;
+        }
+        let mut cured_instructions = incoming_instructions.clone();
+        cured_instructions.update_percentage(SHED_SKIN_CHANCE);
+        incoming_instructions.update_percentage(1.0 - SHED_SKIN_CHANCE);
+        add_remove_status_instructions(
+            &mut cured_instructions,
+            side.active_index,
+            *side_ref,
+            side,
+        );
+        shed_skin_branches.extend(add_end_of_turn_instructions_with_shed_skin(
+            state,
+            &mut cured_instructions,
+            first_move_side,
+            &sides[i + 1..],
+        ));
+        let start = incoming_instructions.instruction_list.len();
+        state.reverse_instructions(&cured_instructions.instruction_list[start..].to_vec());
+        shed_skin_branches.push(cured_instructions);
+    }
+    add_end_of_turn_instructions(state, incoming_instructions, first_move_side);
+    shed_skin_branches
+}
+
 fn run_move(
     state: &mut State,
     attacking_side: SideReference,
@@ -4390,6 +4437,7 @@ pub fn generate_instructions_from_move_pair(
     // reverse instructions because mega-evolving might've added some
     state.reverse_instructions(&incoming_instructions.instruction_list);
 
+    let mut shed_skin_branches = vec![];
     match moves_first(
         &state,
         &side_one_choice,
@@ -4414,7 +4462,12 @@ pub fn generate_instructions_from_move_pair(
                     || state.side_one.force_switch
                     || state.side_two.force_switch)
                 {
-                    add_end_of_turn_instructions(state, state_instruction, &SideReference::SideOne);
+                    shed_skin_branches.extend(add_end_of_turn_instructions_with_shed_skin(
+                        state,
+                        state_instruction,
+                        &SideReference::SideOne,
+                        &[SideReference::SideOne, SideReference::SideTwo],
+                    ));
                 }
                 state.reverse_instructions(&state_instruction.instruction_list);
             }
@@ -4436,7 +4489,12 @@ pub fn generate_instructions_from_move_pair(
                     || state.side_one.force_switch
                     || state.side_two.force_switch)
                 {
-                    add_end_of_turn_instructions(state, state_instruction, &SideReference::SideTwo);
+                    shed_skin_branches.extend(add_end_of_turn_instructions_with_shed_skin(
+                        state,
+                        state_instruction,
+                        &SideReference::SideTwo,
+                        &[SideReference::SideOne, SideReference::SideTwo],
+                    ));
                 }
                 state.reverse_instructions(&state_instruction.instruction_list);
             }
@@ -4463,7 +4521,12 @@ pub fn generate_instructions_from_move_pair(
                     || state.side_one.force_switch
                     || state.side_two.force_switch)
                 {
-                    add_end_of_turn_instructions(state, state_instruction, &SideReference::SideOne);
+                    shed_skin_branches.extend(add_end_of_turn_instructions_with_shed_skin(
+                        state,
+                        state_instruction,
+                        &SideReference::SideOne,
+                        &[SideReference::SideOne, SideReference::SideTwo],
+                    ));
                 }
                 state.reverse_instructions(&state_instruction.instruction_list);
             }
@@ -4486,7 +4549,12 @@ pub fn generate_instructions_from_move_pair(
                     || state.side_one.force_switch
                     || state.side_two.force_switch)
                 {
-                    add_end_of_turn_instructions(state, state_instruction, &SideReference::SideTwo);
+                    shed_skin_branches.extend(add_end_of_turn_instructions_with_shed_skin(
+                        state,
+                        state_instruction,
+                        &SideReference::SideTwo,
+                        &[SideReference::SideOne, SideReference::SideTwo],
+                    ));
                 }
                 state.reverse_instructions(&state_instruction.instruction_list);
             }
@@ -4495,6 +4563,7 @@ pub fn generate_instructions_from_move_pair(
             state_instructions_vec.extend(side_two_moves_first_si);
         }
     }
+    state_instructions_vec.extend(shed_skin_branches);
     state_instructions_vec
 }
 
@@ -4564,11 +4633,18 @@ fn get_instructions_from_pursuit_hitting_switching_target(
         i += 1;
     }
 
+    let mut shed_skin_branches = vec![];
     for state_instruction in state_instructions_vec.iter_mut() {
         state.apply_instructions(&state_instruction.instruction_list);
-        add_end_of_turn_instructions(state, state_instruction, &SideReference::SideOne);
+        shed_skin_branches.extend(add_end_of_turn_instructions_with_shed_skin(
+            state,
+            state_instruction,
+            &SideReference::SideOne,
+            &[SideReference::SideOne, SideReference::SideTwo],
+        ));
         state.reverse_instructions(&state_instruction.instruction_list);
     }
+    state_instructions_vec.extend(shed_skin_branches);
 }
 
 pub fn calculate_damage_rolls(

@@ -16131,6 +16131,58 @@ fn test_pursuit_knocking_out_switching_target_does_not_let_them_switch() {
 }
 
 #[test]
+fn test_pursuit_knocking_out_switching_target_still_rolls_shedskin() {
+    let mut state = State::default();
+    state.side_one.get_active().ability = Abilities::SHEDSKIN;
+    state.side_one.get_active().status = PokemonStatus::POISON;
+    state.side_two.get_active().hp = 1;
+    state.side_one.get_active().moves.m0 = Move {
+        id: Choices::PURSUIT,
+        disabled: false,
+        pp: 35,
+        choice: MOVES.get(&Choices::PURSUIT).unwrap().to_owned(),
+    };
+
+    let vec_of_instructions = generate_instructions_with_state_assertion(
+        &mut state,
+        &MoveChoice::Move(PokemonMoveIndex::M0),
+        &MoveChoice::Switch(PokemonIndex::P1),
+    );
+
+    let expected_instructions = vec![
+        StateInstructions {
+            percentage: 66.99999,
+            instruction_list: vec![
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 1,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideOne,
+                    damage_amount: 12,
+                }),
+            ],
+        },
+        StateInstructions {
+            percentage: 33.0,
+            instruction_list: vec![
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 1,
+                }),
+                Instruction::ChangeStatus(ChangeStatusInstruction {
+                    side_ref: SideReference::SideOne,
+                    pokemon_index: PokemonIndex::P0,
+                    old_status: PokemonStatus::POISON,
+                    new_status: PokemonStatus::NONE,
+                }),
+            ],
+        },
+    ];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
 fn test_pursuit_into_non_switch() {
     let mut state = State::default();
     state.side_one.get_active().moves.m0 = Move {
@@ -23392,21 +23444,156 @@ fn test_shedskin_end_of_turn() {
         Choices::SPLASH,
     );
 
-    let expected_instructions = vec![StateInstructions {
-        percentage: 100.0,
-        instruction_list: vec![
-            Instruction::Damage(DamageInstruction {
+    let expected_instructions = vec![
+        StateInstructions {
+            percentage: 66.99999,
+            instruction_list: vec![Instruction::Damage(DamageInstruction {
                 side_ref: SideReference::SideTwo,
                 damage_amount: 12,
-            }),
-            Instruction::ChangeStatus(ChangeStatusInstruction {
+            })],
+        },
+        StateInstructions {
+            percentage: 33.0,
+            instruction_list: vec![Instruction::ChangeStatus(ChangeStatusInstruction {
                 side_ref: SideReference::SideTwo,
                 pokemon_index: PokemonIndex::P0,
                 old_status: PokemonStatus::POISON,
                 new_status: PokemonStatus::NONE,
-            }),
-        ],
-    }];
+            })],
+        },
+    ];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_shedskin_activates_independently_for_each_side() {
+    let mut state = State::default();
+    state.side_one.get_active().ability = Abilities::SHEDSKIN;
+    state.side_one.get_active().status = PokemonStatus::POISON;
+    state.side_one.get_active().speed = 150;
+    state.side_two.get_active().ability = Abilities::SHEDSKIN;
+    state.side_two.get_active().status = PokemonStatus::POISON;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![
+        StateInstructions {
+            percentage: 44.88999,
+            instruction_list: vec![
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideOne,
+                    damage_amount: 12,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 12,
+                }),
+            ],
+        },
+        StateInstructions {
+            percentage: 10.89,
+            instruction_list: vec![
+                Instruction::ChangeStatus(ChangeStatusInstruction {
+                    side_ref: SideReference::SideOne,
+                    pokemon_index: PokemonIndex::P0,
+                    old_status: PokemonStatus::POISON,
+                    new_status: PokemonStatus::NONE,
+                }),
+                Instruction::ChangeStatus(ChangeStatusInstruction {
+                    side_ref: SideReference::SideTwo,
+                    pokemon_index: PokemonIndex::P0,
+                    old_status: PokemonStatus::POISON,
+                    new_status: PokemonStatus::NONE,
+                }),
+            ],
+        },
+        StateInstructions {
+            percentage: 22.109999,
+            instruction_list: vec![
+                Instruction::ChangeStatus(ChangeStatusInstruction {
+                    side_ref: SideReference::SideOne,
+                    pokemon_index: PokemonIndex::P0,
+                    old_status: PokemonStatus::POISON,
+                    new_status: PokemonStatus::NONE,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 12,
+                }),
+            ],
+        },
+        StateInstructions {
+            percentage: 22.109999,
+            instruction_list: vec![
+                Instruction::ChangeStatus(ChangeStatusInstruction {
+                    side_ref: SideReference::SideTwo,
+                    pokemon_index: PokemonIndex::P0,
+                    old_status: PokemonStatus::POISON,
+                    new_status: PokemonStatus::NONE,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideOne,
+                    damage_amount: 12,
+                }),
+            ],
+        },
+    ];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_shedskin_can_fail_to_wake_up_sleeping_pokemon() {
+    let mut state = State::default();
+    state.side_two.get_active().ability = Abilities::SHEDSKIN;
+    state.side_two.get_active().status = PokemonStatus::SLEEP;
+    state.side_two.get_active().sleep_turns = 0;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![
+        StateInstructions {
+            percentage: 66.99999,
+            instruction_list: vec![
+                Instruction::SetSleepTurns(SetSleepTurnsInstruction {
+                    side_ref: SideReference::SideTwo,
+                    pokemon_index: PokemonIndex::P0,
+                    new_turns: 1,
+                    previous_turns: 0,
+                }),
+            ],
+        },
+        StateInstructions {
+            percentage: 33.0,
+            instruction_list: vec![
+                Instruction::SetSleepTurns(SetSleepTurnsInstruction {
+                    side_ref: SideReference::SideTwo,
+                    pokemon_index: PokemonIndex::P0,
+                    new_turns: 1,
+                    previous_turns: 0,
+                }),
+                Instruction::ChangeStatus(ChangeStatusInstruction {
+                    side_ref: SideReference::SideTwo,
+                    pokemon_index: PokemonIndex::P0,
+                    old_status: PokemonStatus::SLEEP,
+                    new_status: PokemonStatus::NONE,
+                }),
+                Instruction::SetSleepTurns(SetSleepTurnsInstruction {
+                    side_ref: SideReference::SideTwo,
+                    pokemon_index: PokemonIndex::P0,
+                    new_turns: 0,
+                    previous_turns: 1,
+                }),
+            ],
+        },
+    ];
     assert_eq!(expected_instructions, vec_of_instructions);
 }
 
@@ -23588,39 +23775,62 @@ fn test_using_rest_with_existing_status_condition_and_shedskin() {
         Choices::SPLASH,
     );
 
-    let expected_instructions = vec![StateInstructions {
-        percentage: 100.0,
-        instruction_list: vec![
-            Instruction::ChangeStatus(ChangeStatusInstruction {
-                side_ref: SideReference::SideOne,
-                pokemon_index: PokemonIndex::P0,
-                old_status: PokemonStatus::BURN,
-                new_status: PokemonStatus::SLEEP,
-            }),
-            Instruction::SetRestTurns(SetSleepTurnsInstruction {
-                side_ref: SideReference::SideOne,
-                pokemon_index: PokemonIndex::P0,
-                new_turns: 3,
-                previous_turns: 0,
-            }),
-            Instruction::Heal(HealInstruction {
-                side_ref: SideReference::SideOne,
-                heal_amount: 50,
-            }),
-            Instruction::ChangeStatus(ChangeStatusInstruction {
-                side_ref: SideReference::SideOne,
-                pokemon_index: PokemonIndex::P0,
-                old_status: PokemonStatus::SLEEP,
-                new_status: PokemonStatus::NONE,
-            }),
-            Instruction::SetRestTurns(SetSleepTurnsInstruction {
-                side_ref: SideReference::SideOne,
-                pokemon_index: PokemonIndex::P0,
-                new_turns: 0,
-                previous_turns: 3,
-            }),
-        ],
-    }];
+    let expected_instructions = vec![
+        StateInstructions {
+            percentage: 66.99999,
+            instruction_list: vec![
+                Instruction::ChangeStatus(ChangeStatusInstruction {
+                    side_ref: SideReference::SideOne,
+                    pokemon_index: PokemonIndex::P0,
+                    old_status: PokemonStatus::BURN,
+                    new_status: PokemonStatus::SLEEP,
+                }),
+                Instruction::SetRestTurns(SetSleepTurnsInstruction {
+                    side_ref: SideReference::SideOne,
+                    pokemon_index: PokemonIndex::P0,
+                    new_turns: 3,
+                    previous_turns: 0,
+                }),
+                Instruction::Heal(HealInstruction {
+                    side_ref: SideReference::SideOne,
+                    heal_amount: 50,
+                }),
+            ],
+        },
+        StateInstructions {
+            percentage: 33.0,
+            instruction_list: vec![
+                Instruction::ChangeStatus(ChangeStatusInstruction {
+                    side_ref: SideReference::SideOne,
+                    pokemon_index: PokemonIndex::P0,
+                    old_status: PokemonStatus::BURN,
+                    new_status: PokemonStatus::SLEEP,
+                }),
+                Instruction::SetRestTurns(SetSleepTurnsInstruction {
+                    side_ref: SideReference::SideOne,
+                    pokemon_index: PokemonIndex::P0,
+                    new_turns: 3,
+                    previous_turns: 0,
+                }),
+                Instruction::Heal(HealInstruction {
+                    side_ref: SideReference::SideOne,
+                    heal_amount: 50,
+                }),
+                Instruction::ChangeStatus(ChangeStatusInstruction {
+                    side_ref: SideReference::SideOne,
+                    pokemon_index: PokemonIndex::P0,
+                    old_status: PokemonStatus::SLEEP,
+                    new_status: PokemonStatus::NONE,
+                }),
+                Instruction::SetRestTurns(SetSleepTurnsInstruction {
+                    side_ref: SideReference::SideOne,
+                    pokemon_index: PokemonIndex::P0,
+                    new_turns: 0,
+                    previous_turns: 3,
+                }),
+            ],
+        },
+    ];
     assert_eq!(expected_instructions, vec_of_instructions);
 }
 
