@@ -908,6 +908,39 @@ fn get_instructions_from_status_effects(
         })
     };
     incoming_instructions.instruction_list.push(instruction);
+
+    // the status came from the other side's active, which Synchronize hits back
+    #[cfg(feature = "gen4")]
+    let sync_status = match status.status {
+        PokemonStatus::TOXIC => PokemonStatus::POISON,
+        s => s,
+    };
+    #[cfg(not(feature = "gen4"))]
+    let sync_status = status.status;
+    if state
+        .get_side_immutable(&target_side_ref)
+        .get_active_immutable()
+        .ability
+        == Abilities::SYNCHRONIZE
+        && matches!(
+            sync_status,
+            PokemonStatus::BURN
+                | PokemonStatus::PARALYZE
+                | PokemonStatus::POISON
+                | PokemonStatus::TOXIC
+        )
+    {
+        get_instructions_from_status_effects(
+            state,
+            &Status {
+                target: MoveTarget::Opponent,
+                status: sync_status,
+            },
+            &target_side_ref,
+            incoming_instructions,
+            false,
+        );
+    }
 }
 
 pub fn get_boost_amount(side: &Side, boost: &PokemonBoostableStat, amount: i8) -> i8 {

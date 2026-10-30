@@ -22807,6 +22807,152 @@ fn test_flamebody() {
 }
 
 #[test]
+fn test_synchronize_passes_paralysis_to_attacker() {
+    let mut state = State::default();
+    state.side_one.get_active().ability = Abilities::NOGUARD;
+    state.side_two.get_active().ability = Abilities::SYNCHRONIZE;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::GLARE,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::ChangeStatus(ChangeStatusInstruction {
+                side_ref: SideReference::SideTwo,
+                pokemon_index: PokemonIndex::P0,
+                old_status: PokemonStatus::NONE,
+                new_status: PokemonStatus::PARALYZE,
+            }),
+            Instruction::ChangeStatus(ChangeStatusInstruction {
+                side_ref: SideReference::SideOne,
+                pokemon_index: PokemonIndex::P0,
+                old_status: PokemonStatus::NONE,
+                new_status: PokemonStatus::PARALYZE,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_synchronize_passes_burn_to_flamebody_user() {
+    let mut state = State::default();
+    state.side_one.get_active().ability = Abilities::SYNCHRONIZE;
+    state.side_two.get_active().ability = Abilities::FLAMEBODY;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::TACKLE,
+        Choices::SPLASH,
+    );
+
+    let expected_burn_damage =
+        ((state.side_one.get_active().maxhp as f32) * BURN_RESIDUAL_DAMAGE_PCT) as i16;
+    let expected_instructions = vec![
+        StateInstructions {
+            percentage: 70.0,
+            instruction_list: vec![Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 48,
+            })],
+        },
+        StateInstructions {
+            percentage: 30.000002,
+            instruction_list: vec![
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 48,
+                }),
+                Instruction::ChangeStatus(ChangeStatusInstruction {
+                    side_ref: SideReference::SideOne,
+                    pokemon_index: PokemonIndex::P0,
+                    old_status: PokemonStatus::NONE,
+                    new_status: PokemonStatus::BURN,
+                }),
+                Instruction::ChangeStatus(ChangeStatusInstruction {
+                    side_ref: SideReference::SideTwo,
+                    pokemon_index: PokemonIndex::P0,
+                    old_status: PokemonStatus::NONE,
+                    new_status: PokemonStatus::BURN,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: expected_burn_damage,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideOne,
+                    damage_amount: expected_burn_damage,
+                }),
+            ],
+        },
+    ];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_synchronize_does_not_pass_sleep() {
+    let mut state = State::default();
+    state.side_two.get_active().ability = Abilities::SYNCHRONIZE;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPORE,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![Instruction::ChangeStatus(ChangeStatusInstruction {
+            side_ref: SideReference::SideTwo,
+            pokemon_index: PokemonIndex::P0,
+            old_status: PokemonStatus::NONE,
+            new_status: PokemonStatus::SLEEP,
+        })],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_synchronize_does_not_pass_status_to_immune_attacker() {
+    let mut state = State::default();
+    state.side_one.get_active().types.0 = PokemonType::POISON;
+    state.side_two.get_active().ability = Abilities::SYNCHRONIZE;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::TOXIC,
+        Choices::SPLASH,
+    );
+
+    let expected_toxic_damage = state.side_two.get_active().maxhp / 16;
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::ChangeStatus(ChangeStatusInstruction {
+                side_ref: SideReference::SideTwo,
+                pokemon_index: PokemonIndex::P0,
+                old_status: PokemonStatus::NONE,
+                new_status: PokemonStatus::TOXIC,
+            }),
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: expected_toxic_damage,
+            }),
+            Instruction::ChangeSideCondition(ChangeSideConditionInstruction {
+                side_ref: SideReference::SideTwo,
+                side_condition: PokemonSideCondition::ToxicCount,
+                amount: 1,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
 fn test_spicyspray() {
     let mut state = State::default();
     state.side_two.get_active().ability = Abilities::SPICYSPRAY;
