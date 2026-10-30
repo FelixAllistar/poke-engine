@@ -181,6 +181,8 @@ define_enum_with_from_str! {
         WIDELENS,
         LOADEDDICE,
         LIGHTCLAY,
+        SCOPELENS,
+        RAZORCLAW,
         RUSTEDSWORD,
         RUSTEDSHIELD,
         WHITEHERB,
