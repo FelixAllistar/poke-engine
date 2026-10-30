@@ -16,6 +16,8 @@ use crate::state::{
 };
 use std::cmp;
 
+#[cfg(feature = "gen4")]
+use super::state::PokemonVolatileStatus;
 
 define_enum_with_from_str! {
     #[repr(u16)]
