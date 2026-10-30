@@ -1478,24 +1478,26 @@ pub fn choice_special_effect(
                 .volatile_statuses
                 .contains(&PokemonVolatileStatus::SUBSTITUTE)
             {
-                let target_hp = (attacking_side.get_active_immutable().hp
-                    + defending_side.get_active_immutable().hp)
-                    / 2;
+                let attacker = attacking_side.get_active_immutable();
+                let defender = defending_side.get_active_immutable();
+                let target_hp = (attacker.hp + defender.hp) / 2;
+                let attacker_hp = cmp::min(target_hp, attacker.maxhp);
+                let defender_hp = cmp::min(target_hp, defender.maxhp);
                 instructions
                     .instruction_list
                     .push(Instruction::Damage(DamageInstruction {
                         side_ref: *attacking_side_ref,
-                        damage_amount: attacking_side.get_active_immutable().hp - target_hp,
+                        damage_amount: attacker.hp - attacker_hp,
                     }));
                 instructions
                     .instruction_list
                     .push(Instruction::Damage(DamageInstruction {
                         side_ref: attacking_side_ref.get_other_side(),
-                        damage_amount: defending_side.get_active_immutable().hp - target_hp,
+                        damage_amount: defender.hp - defender_hp,
                     }));
 
-                attacking_side.get_active().hp = target_hp;
-                defending_side.get_active().hp = target_hp;
+                attacking_side.get_active().hp = attacker_hp;
+                defending_side.get_active().hp = defender_hp;
             }
         }
         Choices::SUBSTITUTE | Choices::SHEDTAIL => {
