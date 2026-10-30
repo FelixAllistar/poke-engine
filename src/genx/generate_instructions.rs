@@ -1069,22 +1069,17 @@ fn get_instructions_from_boosts(
 }
 
 fn compare_health_with_damage_multiples(max_damage: i16, health: i16) -> (i16, i16) {
-    let max_damage_f32 = max_damage as f32;
-    let health_f32 = health as f32;
-
     let mut total_less_than = 0;
     let mut num_less_than = 0;
     let mut num_greater_than = 0;
-    let increment = max_damage as f32 * 0.01;
-    let mut damage = max_damage_f32 * 0.85;
-    for _ in 0..16 {
-        if damage < health_f32 {
-            total_less_than += damage as i16;
+    for roll in 85..=100 {
+        let damage = (max_damage as i32 * roll / 100) as i16;
+        if damage < health {
+            total_less_than += damage;
             num_less_than += 1;
-        } else if damage > health_f32 {
+        } else {
             num_greater_than += 1;
         }
-        damage += increment;
     }
 
     (total_less_than / num_less_than, num_greater_than)

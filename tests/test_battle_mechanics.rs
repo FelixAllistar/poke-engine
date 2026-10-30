@@ -571,6 +571,51 @@ fn test_branch_when_a_roll_can_kill_on_the_low_side() {
 }
 
 #[test]
+#[cfg(any(feature = "gen9", feature = "champions"))]
+fn test_branch_when_only_the_max_roll_kills() {
+    let mut state = State::default();
+    state.side_two.get_active().hp = 35;
+
+    let move_one = Choices::WATERGUN;
+    let move_two = Choices::SPLASH;
+    state
+        .side_one
+        .get_active()
+        .replace_move(PokemonMoveIndex::M0, move_one);
+    state
+        .side_two
+        .get_active()
+        .replace_move(PokemonMoveIndex::M0, move_two);
+
+    let vec_of_instructions = generate_instructions_from_move_pair(
+        &mut state,
+        &MoveChoice::Move(PokemonMoveIndex::M0),
+        &MoveChoice::Move(PokemonMoveIndex::M0),
+        true,
+    );
+
+    // This damage roll is 29-35, the max roll does exactly 35 and kills
+    // The roll has a 1/16 chance of killing plus the chance of a crit
+    let expected_instructions = vec![
+        StateInstructions {
+            percentage: 89.84375,
+            instruction_list: vec![Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 31,
+            })],
+        },
+        StateInstructions {
+            percentage: 10.15625,
+            instruction_list: vec![Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 35,
+            })],
+        },
+    ];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
 fn test_min_damage_killing_does_not_branch() {
     let mut state = State::default();
     state.side_two.get_active().hp = 44;
