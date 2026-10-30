@@ -16576,6 +16576,58 @@ fn test_beatup_uses_stat_points_to_find_base_attack() {
 }
 
 #[test]
+fn test_multi_hit_move_rolls_status_secondary_on_every_hit() {
+    let mut state = State::default();
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::TWINEEDLE,
+        Choices::SPLASH,
+    );
+
+    // 20% poison chance on each of 2 hits: 1 - 0.8 * 0.8 = 36%
+    let expected_instructions = vec![
+        StateInstructions {
+            percentage: 64.00001,
+            instruction_list: vec![
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 21,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 21,
+                }),
+            ],
+        },
+        StateInstructions {
+            percentage: 35.999996,
+            instruction_list: vec![
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 21,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 21,
+                }),
+                Instruction::ChangeStatus(ChangeStatusInstruction {
+                    side_ref: SideReference::SideTwo,
+                    pokemon_index: PokemonIndex::P0,
+                    old_status: PokemonStatus::NONE,
+                    new_status: PokemonStatus::POISON,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 12,
+                }),
+            ],
+        },
+    ];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
 fn test_scaleshot_only_boosts_once() {
     let mut state = State::default();
 

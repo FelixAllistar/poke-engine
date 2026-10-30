@@ -1064,6 +1064,7 @@ fn get_instructions_from_secondaries(
     side_reference: &SideReference,
     incoming_instructions: StateInstructions,
     hit_sub: bool,
+    hit_count: i8,
 ) -> Vec<StateInstructions> {
     let mut return_instruction_list = Vec::with_capacity(4);
     return_instruction_list.push(incoming_instructions);
@@ -1072,7 +1073,13 @@ fn get_instructions_from_secondaries(
         if secondary.target == MoveTarget::Opponent && hit_sub {
             continue;
         }
-        let secondary_percent_hit = (secondary.chance / 100.0).min(1.0);
+        let mut secondary_percent_hit = (secondary.chance / 100.0).min(1.0);
+        // every hit rolls a status or volatile status again, but it can only land once
+        if hit_count > 1
+            && matches!(secondary.effect, Effect::Status(_) | Effect::VolatileStatus(_))
+        {
+            secondary_percent_hit = 1.0 - (1.0 - secondary_percent_hit).powi(hit_count as i32);
+        }
 
         let mut i = 0;
         while i < return_instruction_list.len() {
@@ -3686,9 +3693,9 @@ fn run_move(
         }
     } // end multi-hit
       // this is wrong, but I am deciding it is good enough for this engine (for now)
-      // each multi-hit move should trigger a chance for a secondary effect,
-      // but the way this engine was structured makes it difficult to implement
-      // without some performance hits.
+      // status secondaries use the chance of any hit landing them, but are applied after
+      // every hit, so a status from an early hit does not affect the later hits.
+      // boosts, heals and other secondaries are applied once per move, not once per hit.
 
     if let Some(boost) = &choice.boost {
         get_instructions_from_boosts(state, boost, &attacking_side, &mut instructions);
@@ -3836,6 +3843,7 @@ fn run_move(
             &attacking_side,
             instructions,
             hit_sub,
+            hit_count,
         );
         final_instructions.extend(instructions_vec_after_secondaries);
     } else {
