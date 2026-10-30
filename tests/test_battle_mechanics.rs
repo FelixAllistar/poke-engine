@@ -17077,6 +17077,57 @@ fn test_no_lifeorb_recoil_with_magicguard() {
 }
 
 #[test]
+#[cfg(not(feature = "gen4"))]
+fn test_no_lifeorb_recoil_with_sheerforce_boosted_move() {
+    let mut state = State::default();
+    state.side_one.get_active().item = Items::LIFEORB;
+    state.side_one.get_active().ability = Abilities::SHEERFORCE;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::EMBER,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![Instruction::Damage(DamageInstruction {
+            side_ref: SideReference::SideTwo,
+            damage_amount: 53,
+        })],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_lifeorb_recoil_with_sheerforce_on_move_without_secondaries() {
+    let mut state = State::default();
+    state.side_one.get_active().item = Items::LIFEORB;
+    state.side_one.get_active().ability = Abilities::SHEERFORCE;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::TACKLE,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 61,
+            }),
+            Instruction::Heal(HealInstruction {
+                side_ref: SideReference::SideOne,
+                heal_amount: -10,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
 fn test_no_lifeorb_recoil_when_protected() {
     let mut state = State::default();
     state.side_one.get_active().item = Items::LIFEORB;

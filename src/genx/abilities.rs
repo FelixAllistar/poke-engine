@@ -2342,7 +2342,8 @@ pub fn ability_modify_attack_being_used(
             if attacker_choice.secondaries.is_some() || sheer_force_volatile_boosted {
                 attacker_choice.base_power *= 1.3;
                 attacker_choice.secondaries = None;
-                attacker_choice.volatile_status = None
+                attacker_choice.volatile_status = None;
+                attacker_choice.sheer_force_boosted = true;
             }
         }
         Abilities::IRONFIST => {
