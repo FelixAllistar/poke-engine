@@ -22575,6 +22575,88 @@ fn test_hydration_end_of_turn() {
 }
 
 #[test]
+fn test_leftovers_heals_before_poison_damage() {
+    let mut state = State::default();
+    state.side_two.get_active().item = Items::LEFTOVERS;
+    state.side_two.get_active().status = PokemonStatus::POISON;
+    state.side_two.get_active().hp = 95;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Heal(HealInstruction {
+                side_ref: SideReference::SideTwo,
+                heal_amount: 5,
+            }),
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 12,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_leftovers_does_not_heal_poison_damage_at_full_hp() {
+    let mut state = State::default();
+    state.side_two.get_active().item = Items::LEFTOVERS;
+    state.side_two.get_active().status = PokemonStatus::POISON;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![Instruction::Damage(DamageInstruction {
+            side_ref: SideReference::SideTwo,
+            damage_amount: 12,
+        })],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+#[cfg(not(any(feature = "gen4", feature = "gen5", feature = "gen6")))]
+fn test_blacksludge_heals_poison_type_before_burn_damage() {
+    let mut state = State::default();
+    state.side_two.get_active().item = Items::BLACKSLUDGE;
+    state.side_two.get_active().types = (PokemonType::POISON, PokemonType::TYPELESS);
+    state.side_two.get_active().status = PokemonStatus::BURN;
+    state.side_two.get_active().hp = 95;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Heal(HealInstruction {
+                side_ref: SideReference::SideTwo,
+                heal_amount: 5,
+            }),
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 6,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
 fn test_using_rest_with_existing_status_condition_and_hydration() {
     let mut state = State::default();
     state.side_one.get_active().ability = Abilities::HYDRATION;

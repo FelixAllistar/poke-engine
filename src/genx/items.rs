@@ -7,8 +7,8 @@ use crate::choices::{Choice, Choices, Effect, MoveCategory, MoveTarget, Secondar
 use crate::define_enum_with_from_str;
 use crate::engine::generate_instructions::add_remove_status_instructions;
 use crate::instruction::{
-    ChangeItemInstruction, ChangeStatusInstruction, DamageInstruction, DisableMoveInstruction,
-    HealInstruction, Instruction, StateInstructions,
+    ChangeItemInstruction, ChangeStatusInstruction, DisableMoveInstruction, HealInstruction,
+    Instruction, StateInstructions,
 };
 use crate::pokemon::PokemonName;
 use crate::state::{
@@ -933,29 +933,6 @@ pub fn item_end_of_turn(
         Items::RAWSTBERRY if active_pkmn.status == PokemonStatus::BURN => {
             status_cure_berry(Items::RAWSTBERRY, side_ref, attacking_side, instructions)
         }
-        Items::BLACKSLUDGE => {
-            if active_pkmn.has_type(&PokemonType::POISON) {
-                if active_pkmn.hp < active_pkmn.maxhp {
-                    let heal_amount =
-                        cmp::min(active_pkmn.maxhp / 16, active_pkmn.maxhp - active_pkmn.hp);
-                    let ins = Instruction::Heal(HealInstruction {
-                        side_ref: side_ref.clone(),
-                        heal_amount: heal_amount,
-                    });
-                    active_pkmn.hp += heal_amount;
-                    instructions.instruction_list.push(ins);
-                }
-            } else {
-                let damage_amount =
-                    cmp::min(active_pkmn.maxhp / 16, active_pkmn.maxhp - active_pkmn.hp);
-                let ins = Instruction::Damage(DamageInstruction {
-                    side_ref: side_ref.clone(),
-                    damage_amount: damage_amount,
-                });
-                active_pkmn.hp -= damage_amount;
-                instructions.instruction_list.push(ins);
-            }
-        }
         Items::FLAMEORB => {
             if !immune_to_status(state, &MoveTarget::User, side_ref, &PokemonStatus::BURN) {
                 let side = state.get_side(side_ref);
@@ -966,18 +943,6 @@ pub fn item_end_of_turn(
                     old_status: PokemonStatus::NONE,
                 });
                 side.get_active().status = PokemonStatus::BURN;
-                instructions.instruction_list.push(ins);
-            }
-        }
-        Items::LEFTOVERS => {
-            let attacker = state.get_side(side_ref).get_active();
-            if attacker.hp < attacker.maxhp {
-                let heal_amount = cmp::min(attacker.maxhp / 16, attacker.maxhp - attacker.hp);
-                let ins = Instruction::Heal(HealInstruction {
-                    side_ref: side_ref.clone(),
-                    heal_amount: heal_amount,
-                });
-                attacker.hp += heal_amount;
                 instructions.instruction_list.push(ins);
             }
         }
