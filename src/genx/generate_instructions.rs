@@ -2376,8 +2376,10 @@ pub fn generate_instructions_from_move(
 
     // start multi-hit
     // each (hit_count, chance) pair is run as its own branch
-    let mut hit_branches = [(1, 1.0), (0, 0.0)];
-    let attacker = state.get_side_immutable(&attacking_side).get_active_immutable();
+    // unused entries are padding with chance 0 and are skipped
+    let mut hit_branches = [(1, 1.0), (0, 0.0), (0, 0.0)];
+    let attacker_side = state.get_side_immutable(&attacking_side);
+    let attacker = attacker_side.get_active_immutable();
     match choice.multi_hit() {
         MultiHitMove::None => {}
         MultiHitMove::DoubleHit => {
@@ -2391,7 +2393,7 @@ pub fn generate_instructions_from_move(
                 hit_branches[0].0 = 5;
             } else if attacker.item == Items::LOADEDDICE {
                 // loaded dice re-rolls 2 or 3 hits into 4 or 5, making 4 and 5 equally likely
-                hit_branches = [(4, 0.5), (5, 0.5)];
+                hit_branches = [(4, 0.5), (5, 0.5), (0, 0.0)];
             } else {
                 // too lazy to implement branching here. Average is 3.2 so this is a fine approximation
                 hit_branches[0].0 = 3;
@@ -2407,9 +2409,15 @@ pub fn generate_instructions_from_move(
             };
         }
         MultiHitMove::TripleAxel => {
-            // triple axel checks accuracy each time but until multi-accuracy is implemented this
-            // is the best we can do
-            hit_branches[0].0 = 3;
+            // the first hit already passed its accuracy check. Each later hit checks accuracy
+            // again and the move stops at the first miss, unless skill link or loaded dice
+            if attacker.ability == Abilities::SKILLLINK || attacker.item == Items::LOADEDDICE {
+                hit_branches[0].0 = 3;
+            } else {
+                let accuracy_boost = boosted_accuracy(attacker_side.accuracy_boost);
+                let acc = (choice.accuracy / 100.0 * accuracy_boost).min(1.0);
+                hit_branches = [(1, 1.0 - acc), (2, acc * (1.0 - acc)), (3, acc * acc)];
+            }
         }
     }
 
@@ -2493,6 +2501,12 @@ pub fn generate_instructions_from_move(
             if damage_ins.percentage * hit_chance == 0.0 {
                 continue;
             }
+            // triple axel hits with 20, 40 then 60 power. damage was calculated with 40 power
+            let damage_amount = if choice.multi_hit() == MultiHitMove::TripleAxel {
+                (*damage_amount as f32 * (hit_count + 1) as f32 / 4.0) as i16
+            } else {
+                *damage_amount
+            };
             let mut ins = if hit_chance == 1.0 {
                 std::mem::take(damage_ins)
             } else {
@@ -2509,7 +2523,7 @@ pub fn generate_instructions_from_move(
                 ins,
                 hit_count,
                 does_damage,
-                *damage_amount,
+                damage_amount,
                 choice,
                 defender_choice,
                 &mut final_instructions,

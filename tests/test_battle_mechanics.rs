@@ -16378,6 +16378,106 @@ fn test_triple_multihit_move_versus_substitute_and_rockyhelmet() {
 }
 
 #[test]
+fn test_tripleaxel_checks_accuracy_on_every_hit() {
+    let mut state = State::default();
+    state.side_two.get_active().hp = 500;
+    state.side_two.get_active().maxhp = 500;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::TRIPLEAXEL,
+        Choices::SPLASH,
+    );
+
+    // 20, 40 and 60 power hits are approximated as their average power
+    let expected_instructions = vec![
+        StateInstructions {
+            percentage: 10.000002,
+            instruction_list: vec![],
+        },
+        StateInstructions {
+            percentage: 9.000002,
+            instruction_list: vec![
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 16,
+                }),
+            ],
+        },
+        StateInstructions {
+            percentage: 8.100001,
+            instruction_list: vec![
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 24,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 24,
+                }),
+            ],
+        },
+        StateInstructions {
+            percentage: 72.899994,
+            instruction_list: vec![
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 32,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 32,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 32,
+                }),
+            ],
+        },
+    ];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_tripleaxel_with_skilllink_always_hits_3_times() {
+    let mut state = State::default();
+    state.side_one.get_active().ability = Abilities::SKILLLINK;
+    state.side_two.get_active().hp = 500;
+    state.side_two.get_active().maxhp = 500;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::TRIPLEAXEL,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![
+        StateInstructions {
+            percentage: 10.000002,
+            instruction_list: vec![],
+        },
+        StateInstructions {
+            percentage: 90.0,
+            instruction_list: vec![
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 32,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 32,
+                }),
+                Instruction::Damage(DamageInstruction {
+                    side_ref: SideReference::SideTwo,
+                    damage_amount: 32,
+                }),
+            ],
+        },
+    ];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
 fn test_scaleshot_only_boosts_once() {
     let mut state = State::default();
 
