@@ -1561,6 +1561,13 @@ impl State {
         ]) {
             self.use_last_used_move = true
         }
+        for s in [&self.side_one, &self.side_two] {
+            for pkmn in s.pokemon.into_iter() {
+                if pkmn.ability == Abilities::SPEEDBOOST {
+                    self.use_last_used_move = true
+                }
+            }
+        }
     }
 
     pub fn set_conditional_mechanics(&mut self) {

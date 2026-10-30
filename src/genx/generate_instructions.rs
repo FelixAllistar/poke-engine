@@ -10725,6 +10725,27 @@ mod tests {
     }
 
     #[test]
+    fn test_speedboost_does_not_boost_on_the_turn_of_switching_in() {
+        let mut state = State::default();
+        state.side_one.get_active().ability = Abilities::SPEEDBOOST;
+        state.side_one.last_used_move = LastUsedMove::Switch(PokemonIndex::P0);
+
+        let mut incoming_instructions = StateInstructions::default();
+        add_end_of_turn_instructions(
+            &mut state,
+            &mut incoming_instructions,
+            &SideReference::SideOne,
+        );
+
+        let expected_instructions = StateInstructions {
+            percentage: 100.0,
+            instruction_list: vec![],
+        };
+
+        assert_eq!(expected_instructions, incoming_instructions)
+    }
+
+    #[test]
     fn test_end_of_turn_poison_damage() {
         let mut state = State::default();
         state.side_one.get_active().status = PokemonStatus::POISON;
