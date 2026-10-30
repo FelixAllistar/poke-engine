@@ -744,7 +744,7 @@ pub fn ability_after_damage_hit(
                 );
             }
         }
-        Abilities::GRIMNEIGH | Abilities::ASONESPECTRIER => {
+        Abilities::GRIMNEIGH | Abilities::ASONESPECTRIER | Abilities::SOULHEART => {
             if damage_dealt > 0 && defending_side.get_active_immutable().hp == 0 {
                 apply_boost_instruction(
                     attacking_side,
