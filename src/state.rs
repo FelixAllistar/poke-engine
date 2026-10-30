@@ -873,6 +873,7 @@ pub struct Pokemon {
     pub mega_evolved: bool,
     pub terastallized: bool,
     pub tera_type: PokemonType,
+    pub sword_shield_boosted: bool,
     pub moves: PokemonMoves,
 }
 
@@ -902,6 +903,7 @@ impl Default for Pokemon {
             mega_evolved: false,
             terastallized: false,
             tera_type: PokemonType::NORMAL,
+            sword_shield_boosted: false,
             moves: PokemonMoves {
                 m0: Default::default(),
                 m1: Default::default(),
@@ -964,7 +966,7 @@ impl Pokemon {
             self.evs.0, self.evs.1, self.evs.2, self.evs.3, self.evs.4, self.evs.5
         );
         format!(
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
             self.id,
             self.level,
             self.types.0.to_string(),
@@ -994,6 +996,7 @@ impl Pokemon {
             self.mega_evolved,
             self.terastallized,
             self.tera_type.to_string(),
+            self.sword_shield_boosted,
         )
     }
 
@@ -1048,6 +1051,7 @@ impl Pokemon {
             mega_evolved: split[26].parse::<bool>().unwrap(),
             terastallized: split[27].parse::<bool>().unwrap(),
             tera_type: PokemonType::from_str(split[28]).unwrap(),
+            sword_shield_boosted: split.get(29).map_or(false, |s| s.parse::<bool>().unwrap()),
         }
     }
 }
@@ -1953,6 +1957,10 @@ impl State {
                 SideReference::SideOne => self.side_one.get_active().mega_evolved ^= true,
                 SideReference::SideTwo => self.side_two.get_active().mega_evolved ^= true,
             },
+            Instruction::ToggleSwordShieldBoosted(instruction) => match instruction.side_ref {
+                SideReference::SideOne => self.side_one.get_active().sword_shield_boosted ^= true,
+                SideReference::SideTwo => self.side_two.get_active().sword_shield_boosted ^= true,
+            },
             Instruction::SetLastUsedMove(instruction) => {
                 self.set_last_used_move(&instruction.side_ref, instruction.last_used_move)
             }
@@ -2155,6 +2163,10 @@ impl State {
                 SideReference::SideOne => self.side_one.get_active().mega_evolved ^= true,
                 SideReference::SideTwo => self.side_two.get_active().mega_evolved ^= true,
             },
+            Instruction::ToggleSwordShieldBoosted(instruction) => match instruction.side_ref {
+                SideReference::SideOne => self.side_one.get_active().sword_shield_boosted ^= true,
+                SideReference::SideTwo => self.side_two.get_active().sword_shield_boosted ^= true,
+            },
             Instruction::SetLastUsedMove(instruction) => {
                 self.set_last_used_move(&instruction.side_ref, instruction.previous_last_used_move)
             }
@@ -2325,7 +2337,11 @@ impl State {
     /// "false,",
     ///
     /// // tera_type
-    /// "Normal=",
+    /// "Normal,",
+    ///
+    /// // if Intrepid Sword / Dauntless Shield already boosted this Pokémon (gen9).
+    /// // Optional, defaults to false
+    /// "false=",
     ///
     /// // all remaining Pokémon shown in 1 line for brevity
     /// "skarmory,100,Steel,Flying,Steel,Flying,271,271,STURDY,STURDY,CUSTAPBERRY,SERIOUS,,259,316,104,177,262,None,0,0,25.5,STEALTHROCK;false;32,SPIKES;false;32,BRAVEBIRD;false;24,THIEF;false;40,false,false,Normal=",

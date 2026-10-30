@@ -197,6 +197,8 @@ class Pokemon:
     :type terastallized: bool
     :param tera_type: Tera type
     :type tera_type: str
+    :param sword_shield_boosted: if Intrepid Sword / Dauntless Shield already boosted this Pokemon (gen9)
+    :type sword_shield_boosted: bool
     :param moves: List of moves
     :type moves: list[Move]
     :param times_attacked: The number of times this Pokemon has been attacked
@@ -228,6 +230,7 @@ class Pokemon:
     mega_evolved: bool
     terastallized: bool
     tera_type: str
+    sword_shield_boosted: bool
     moves: List[Move]
     times_attacked: int
     stellar_boosted_types: Optional[list[str]]
@@ -258,6 +261,7 @@ class Pokemon:
         mega_evolved: bool = False,
         terastallized: bool = False,
         tera_type: str = "typeless",
+        sword_shield_boosted: bool = False,
         times_attacked: int = 0,
         stellar_boosted_types: Optional[list[str]] = None,
     ) -> None: ...

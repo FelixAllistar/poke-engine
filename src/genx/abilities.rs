@@ -21,6 +21,9 @@ use crate::state::{
 };
 use std::cmp;
 
+#[cfg(any(feature = "gen9", feature = "champions"))]
+use crate::instruction::ToggleSwordShieldBoostedInstruction;
+
 #[cfg(any(feature = "gen4", feature = "gen5"))]
 pub const WEATHER_ABILITY_TURNS: i8 = -1;
 
@@ -1397,6 +1400,23 @@ pub fn ability_end_of_turn(
     }
 }
 
+// Showdown keeps this flag on the Pokemon, so it survives switching out
+#[cfg(any(feature = "gen9", feature = "champions"))]
+fn set_sword_shield_boosted(
+    side: &mut Side,
+    side_ref: &SideReference,
+    instructions: &mut StateInstructions,
+) {
+    side.get_active().sword_shield_boosted = true;
+    instructions
+        .instruction_list
+        .push(Instruction::ToggleSwordShieldBoosted(
+            ToggleSwordShieldBoostedInstruction {
+                side_ref: *side_ref,
+            },
+        ));
+}
+
 pub fn ability_on_switch_in(
     state: &mut State,
     side_ref: &SideReference,
@@ -1502,7 +1522,12 @@ pub fn ability_on_switch_in(
                 instructions,
             );
         }
+        #[cfg(any(feature = "gen9", feature = "champions"))]
+        Abilities::INTREPIDSWORD | Abilities::DAUNTLESSSHIELD
+            if active_pkmn.sword_shield_boosted => {}
         Abilities::INTREPIDSWORD => {
+            #[cfg(any(feature = "gen9", feature = "champions"))]
+            set_sword_shield_boosted(attacking_side, side_ref, instructions);
             // no need to check for boost at +6 because we are switching in
             attacking_side.attack_boost += 1;
             instructions
@@ -1654,6 +1679,8 @@ pub fn ability_on_switch_in(
             }
         }
         Abilities::DAUNTLESSSHIELD => {
+            #[cfg(any(feature = "gen9", feature = "champions"))]
+            set_sword_shield_boosted(attacking_side, side_ref, instructions);
             // no need to check for boost at +6 because we are switching in
             attacking_side.defense_boost += 1;
             instructions
