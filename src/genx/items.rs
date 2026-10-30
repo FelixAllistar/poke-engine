@@ -1209,7 +1209,9 @@ pub fn item_modify_attack_being_used(
                 }
 
                 #[cfg(not(feature = "gen4"))]
-                if attacking_side.get_active_immutable().ability != Abilities::MAGICGUARD {
+                if attacking_side.get_active_immutable().ability != Abilities::MAGICGUARD
+                    && !attacking_choice.sheer_force_boosted
+                {
                     attacking_choice.add_or_create_secondaries(Secondary {
                         chance: 100.0,
                         effect: Effect::Heal(-0.1),

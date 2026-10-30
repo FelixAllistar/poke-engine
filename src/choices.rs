@@ -20543,6 +20543,7 @@ pub struct Choice {
 
     pub first_move: bool,
     pub sleep_talk_move: bool,
+    pub sheer_force_boosted: bool,
 }
 
 impl fmt::Debug for Choice {
@@ -20672,6 +20673,7 @@ impl Default for Choice {
             target: MoveTarget::Opponent,
             first_move: true,
             sleep_talk_move: false,
+            sheer_force_boosted: false,
         }
     }
 }
