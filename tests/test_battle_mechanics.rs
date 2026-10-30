@@ -19052,6 +19052,114 @@ fn test_download_for_special_defense() {
 }
 
 #[test]
+fn test_download_when_both_sides_switch_and_side_two_is_faster() {
+    let mut state = State::default();
+    state.side_one.get_active().speed = 100;
+    state.side_two.get_active().speed = 150;
+    state.side_one.pokemon[PokemonIndex::P1].ability = Abilities::DOWNLOAD;
+    state.side_two.get_active().defense = 100;
+    state.side_two.get_active().special_defense = 150;
+    state.side_two.pokemon[PokemonIndex::P1].defense = 100;
+    state.side_two.pokemon[PokemonIndex::P1].special_defense = 100;
+
+    let vec_of_instructions = generate_instructions_with_state_assertion(
+        &mut state,
+        &MoveChoice::Switch(PokemonIndex::P1),
+        &MoveChoice::Switch(PokemonIndex::P1),
+    );
+
+    // side two switches first, so download sees equal defenses on the pkmn side two switched in
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Switch(SwitchInstruction {
+                side_ref: SideReference::SideTwo,
+                previous_index: PokemonIndex::P0,
+                next_index: PokemonIndex::P1,
+            }),
+            Instruction::Switch(SwitchInstruction {
+                side_ref: SideReference::SideOne,
+                previous_index: PokemonIndex::P0,
+                next_index: PokemonIndex::P1,
+            }),
+            Instruction::Boost(BoostInstruction {
+                side_ref: SideReference::SideOne,
+                stat: PokemonBoostableStat::SpecialAttack,
+                amount: 1,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_trace_into_download_when_both_sides_switch_with_speed_tie() {
+    let mut state = State::default();
+    state.side_one.get_active().speed = 100;
+    state.side_two.get_active().speed = 100;
+    state.side_one.pokemon[PokemonIndex::P1].ability = Abilities::TRACE;
+    state.side_two.get_active().ability = Abilities::DOWNLOAD;
+    state.side_two.get_active().base_ability = Abilities::DOWNLOAD;
+    state.side_two.get_active().defense = 100;
+    state.side_two.get_active().special_defense = 150;
+    state.side_two.pokemon[PokemonIndex::P1].ability = Abilities::PRESSURE;
+
+    let vec_of_instructions = generate_instructions_with_state_assertion(
+        &mut state,
+        &MoveChoice::Switch(PokemonIndex::P1),
+        &MoveChoice::Switch(PokemonIndex::P1),
+    );
+
+    // trace copies download only when side one switches in before side two switches out
+    let expected_instructions = vec![
+        StateInstructions {
+            percentage: 50.0,
+            instruction_list: vec![
+                Instruction::Switch(SwitchInstruction {
+                    side_ref: SideReference::SideOne,
+                    previous_index: PokemonIndex::P0,
+                    next_index: PokemonIndex::P1,
+                }),
+                Instruction::ChangeAbility(ChangeAbilityInstruction {
+                    side_ref: SideReference::SideOne,
+                    ability_change: Abilities::DOWNLOAD as i16 - Abilities::TRACE as i16,
+                }),
+                Instruction::Boost(BoostInstruction {
+                    side_ref: SideReference::SideOne,
+                    stat: PokemonBoostableStat::Attack,
+                    amount: 1,
+                }),
+                Instruction::Switch(SwitchInstruction {
+                    side_ref: SideReference::SideTwo,
+                    previous_index: PokemonIndex::P0,
+                    next_index: PokemonIndex::P1,
+                }),
+            ],
+        },
+        StateInstructions {
+            percentage: 50.0,
+            instruction_list: vec![
+                Instruction::Switch(SwitchInstruction {
+                    side_ref: SideReference::SideTwo,
+                    previous_index: PokemonIndex::P0,
+                    next_index: PokemonIndex::P1,
+                }),
+                Instruction::Switch(SwitchInstruction {
+                    side_ref: SideReference::SideOne,
+                    previous_index: PokemonIndex::P0,
+                    next_index: PokemonIndex::P1,
+                }),
+                Instruction::ChangeAbility(ChangeAbilityInstruction {
+                    side_ref: SideReference::SideOne,
+                    ability_change: Abilities::PRESSURE as i16 - Abilities::TRACE as i16,
+                }),
+            ],
+        },
+    ];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
 fn test_innerfocus_versus_intimidate() {
     let mut state = State::default();
     state.side_two.get_active().ability = Abilities::INNERFOCUS;
