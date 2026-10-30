@@ -16,8 +16,8 @@ use crate::instruction::{
 };
 use crate::pokemon::PokemonName;
 use crate::state::{
-    Pokemon, PokemonBoostableStat, PokemonSideCondition, PokemonStatus, PokemonType, Side,
-    SideReference, State,
+    LastUsedMove, Pokemon, PokemonBoostableStat, PokemonSideCondition, PokemonStatus, PokemonType,
+    Side, SideReference, State,
 };
 use std::cmp;
 
@@ -1317,7 +1317,10 @@ pub fn ability_end_of_turn(
             }
         }
         Abilities::SPEEDBOOST => {
-            if attacking_side.speed_boost < 6 {
+            // no boost on the turn the pokemon switched in
+            if attacking_side.speed_boost < 6
+                && !matches!(attacking_side.last_used_move, LastUsedMove::Switch(_))
+            {
                 let ins = Instruction::Boost(BoostInstruction {
                     side_ref: side_ref.clone(),
                     stat: PokemonBoostableStat::Speed,

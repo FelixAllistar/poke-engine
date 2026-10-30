@@ -629,6 +629,35 @@ fn test_force_switch_after_faint_does_not_trigger_end_of_turn() {
 }
 
 #[test]
+fn test_speedboost_does_not_activate_on_the_turn_of_switching_in() {
+    let mut state = State::default();
+    state.side_one.pokemon[PokemonIndex::P1].ability = Abilities::SPEEDBOOST;
+    state.set_conditional_mechanics();
+
+    let side_one_move = MoveChoice::Switch(PokemonIndex::P1);
+    let side_two_move = MoveChoice::None;
+    let vec_of_instructions =
+        generate_instructions_with_state_assertion(&mut state, &side_one_move, &side_two_move);
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Switch(SwitchInstruction {
+                side_ref: SideReference::SideOne,
+                previous_index: PokemonIndex::P0,
+                next_index: PokemonIndex::P1,
+            }),
+            Instruction::SetLastUsedMove(SetLastUsedMoveInstruction {
+                side_ref: SideReference::SideOne,
+                last_used_move: LastUsedMove::Switch(PokemonIndex::P1),
+                previous_last_used_move: LastUsedMove::None,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
 fn test_flail_scales_with_remaining_hp() {
     // Flail and Reversal share the same HP-ratio base-power table; Flail had no
     // entry at all, so it was doing zero damage.
