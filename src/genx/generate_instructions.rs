@@ -3114,6 +3114,50 @@ fn add_end_of_turn_instructions(
         }
     }
 
+    // leftovers / black sludge
+    for side_ref in sides {
+        let active_pkmn = state.get_side(side_ref).get_active();
+        if active_pkmn.hp == 0 {
+            continue;
+        }
+        match active_pkmn.item {
+            Items::LEFTOVERS if active_pkmn.hp < active_pkmn.maxhp => {
+                let heal_amount =
+                    cmp::min(active_pkmn.maxhp / 16, active_pkmn.maxhp - active_pkmn.hp);
+                let ins = Instruction::Heal(HealInstruction {
+                    side_ref: *side_ref,
+                    heal_amount,
+                });
+                active_pkmn.hp += heal_amount;
+                incoming_instructions.instruction_list.push(ins);
+            }
+            Items::BLACKSLUDGE => {
+                if active_pkmn.has_type(&PokemonType::POISON) {
+                    if active_pkmn.hp < active_pkmn.maxhp {
+                        let heal_amount =
+                            cmp::min(active_pkmn.maxhp / 16, active_pkmn.maxhp - active_pkmn.hp);
+                        let ins = Instruction::Heal(HealInstruction {
+                            side_ref: *side_ref,
+                            heal_amount,
+                        });
+                        active_pkmn.hp += heal_amount;
+                        incoming_instructions.instruction_list.push(ins);
+                    }
+                } else {
+                    let damage_amount =
+                        cmp::min(active_pkmn.maxhp / 16, active_pkmn.maxhp - active_pkmn.hp);
+                    let ins = Instruction::Damage(DamageInstruction {
+                        side_ref: *side_ref,
+                        damage_amount,
+                    });
+                    active_pkmn.hp -= damage_amount;
+                    incoming_instructions.instruction_list.push(ins);
+                }
+            }
+            _ => {}
+        }
+    }
+
     // status damage
     for side_ref in sides {
         let (side, other_side) = state.get_both_sides(side_ref);
