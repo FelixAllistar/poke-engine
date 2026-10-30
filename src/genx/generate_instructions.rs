@@ -2046,6 +2046,21 @@ pub fn generate_instructions_from_move(
     branch_on_damage: bool,
 ) {
     if choice.category == MoveCategory::Switch {
+        // when both sides switch, the switches run here in speed order so that
+        // the first switch-in ability activates before the other side switches.
+        // replacing fainted pkmn on both sides keeps the side one first order
+        let replacing_fainted = state.side_one.get_active_immutable().hp == 0
+            && state.side_two.get_active_immutable().hp == 0;
+        if defender_choice.category == MoveCategory::Switch && !replacing_fainted {
+            state.apply_instructions(&incoming_instructions.instruction_list);
+            generate_instructions_from_switch(
+                state,
+                choice.switch_id,
+                attacking_side,
+                &mut incoming_instructions,
+            );
+            state.reverse_instructions(&incoming_instructions.instruction_list);
+        }
         final_instructions.push(incoming_instructions);
         return;
     }
@@ -2632,10 +2647,10 @@ fn moves_first(
     if side_one_choice.category == MoveCategory::Switch
         && side_two_choice.category == MoveCategory::Switch
     {
-        return if side_one_effective_speed > side_two_effective_speed {
-            SideMovesFirst::SideOne
-        } else if side_one_effective_speed == side_two_effective_speed {
+        return if side_one_effective_speed == side_two_effective_speed {
             SideMovesFirst::SpeedTie
+        } else if (side_one_effective_speed > side_two_effective_speed) != state.trick_room.active {
+            SideMovesFirst::SideOne
         } else {
             SideMovesFirst::SideTwo
         };
@@ -4200,22 +4215,27 @@ pub fn generate_instructions_from_move_pair(
         return state_instructions_vec;
     }
 
-    // run switches
-    if let MoveChoice::Switch(switch_id) = side_one_move {
-        generate_instructions_from_switch(
-            state,
-            *switch_id,
-            SideReference::SideOne,
-            &mut incoming_instructions,
-        );
-    }
-    if let MoveChoice::Switch(switch_id) = side_two_move {
-        generate_instructions_from_switch(
-            state,
-            *switch_id,
-            SideReference::SideTwo,
-            &mut incoming_instructions,
-        );
+    // run switches, unless both sides switch (see generate_instructions_from_move)
+    let both_switching = side_one_choice.category == MoveCategory::Switch
+        && side_two_choice.category == MoveCategory::Switch
+        && !(s1_replacing_fainted_pkmn && s2_replacing_fainted_pkmn);
+    if !both_switching {
+        if let MoveChoice::Switch(switch_id) = side_one_move {
+            generate_instructions_from_switch(
+                state,
+                *switch_id,
+                SideReference::SideOne,
+                &mut incoming_instructions,
+            );
+        }
+        if let MoveChoice::Switch(switch_id) = side_two_move {
+            generate_instructions_from_switch(
+                state,
+                *switch_id,
+                SideReference::SideTwo,
+                &mut incoming_instructions,
+            );
+        }
     }
     if s1_tera {
         state.side_one.get_active().terastallized = true;

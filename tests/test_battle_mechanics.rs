@@ -17622,6 +17622,185 @@ fn test_intimidate_into_whiteherb() {
 }
 
 #[test]
+fn test_intimidate_when_both_sides_switch_and_side_two_is_faster() {
+    let mut state = State::default();
+    state.side_one.get_active().speed = 100;
+    state.side_two.get_active().speed = 150;
+    state.side_one.pokemon[PokemonIndex::P1].ability = Abilities::INTIMIDATE;
+
+    let vec_of_instructions = generate_instructions_with_state_assertion(
+        &mut state,
+        &MoveChoice::Switch(PokemonIndex::P1),
+        &MoveChoice::Switch(PokemonIndex::P1),
+    );
+
+    // side two switches first, so intimidate hits the pkmn that side two switched in
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Switch(SwitchInstruction {
+                side_ref: SideReference::SideTwo,
+                previous_index: PokemonIndex::P0,
+                next_index: PokemonIndex::P1,
+            }),
+            Instruction::Switch(SwitchInstruction {
+                side_ref: SideReference::SideOne,
+                previous_index: PokemonIndex::P0,
+                next_index: PokemonIndex::P1,
+            }),
+            Instruction::Boost(BoostInstruction {
+                side_ref: SideReference::SideTwo,
+                stat: PokemonBoostableStat::Attack,
+                amount: -1,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_intimidate_when_both_sides_switch_and_side_two_is_slower_in_trickroom() {
+    let mut state = State::default();
+    state.side_one.get_active().speed = 150;
+    state.side_two.get_active().speed = 100;
+    state.trick_room.active = true;
+    state.trick_room.turns_remaining = 3;
+    state.side_one.pokemon[PokemonIndex::P1].ability = Abilities::INTIMIDATE;
+
+    let vec_of_instructions = generate_instructions_with_state_assertion(
+        &mut state,
+        &MoveChoice::Switch(PokemonIndex::P1),
+        &MoveChoice::Switch(PokemonIndex::P1),
+    );
+
+    // side two switches first, so intimidate hits the pkmn that side two switched in
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Switch(SwitchInstruction {
+                side_ref: SideReference::SideTwo,
+                previous_index: PokemonIndex::P0,
+                next_index: PokemonIndex::P1,
+            }),
+            Instruction::Switch(SwitchInstruction {
+                side_ref: SideReference::SideOne,
+                previous_index: PokemonIndex::P0,
+                next_index: PokemonIndex::P1,
+            }),
+            Instruction::Boost(BoostInstruction {
+                side_ref: SideReference::SideTwo,
+                stat: PokemonBoostableStat::Attack,
+                amount: -1,
+            }),
+            Instruction::DecrementTrickRoomTurnsRemaining,
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_intimidate_when_both_sides_switch_with_speed_tie() {
+    let mut state = State::default();
+    state.side_one.get_active().speed = 100;
+    state.side_two.get_active().speed = 100;
+    state.side_one.pokemon[PokemonIndex::P1].ability = Abilities::INTIMIDATE;
+
+    let vec_of_instructions = generate_instructions_with_state_assertion(
+        &mut state,
+        &MoveChoice::Switch(PokemonIndex::P1),
+        &MoveChoice::Switch(PokemonIndex::P1),
+    );
+
+    let expected_instructions = vec![
+        StateInstructions {
+            percentage: 50.0,
+            instruction_list: vec![
+                Instruction::Switch(SwitchInstruction {
+                    side_ref: SideReference::SideOne,
+                    previous_index: PokemonIndex::P0,
+                    next_index: PokemonIndex::P1,
+                }),
+                Instruction::Boost(BoostInstruction {
+                    side_ref: SideReference::SideTwo,
+                    stat: PokemonBoostableStat::Attack,
+                    amount: -1,
+                }),
+                Instruction::Boost(BoostInstruction {
+                    side_ref: SideReference::SideTwo,
+                    stat: PokemonBoostableStat::Attack,
+                    amount: 1,
+                }),
+                Instruction::Switch(SwitchInstruction {
+                    side_ref: SideReference::SideTwo,
+                    previous_index: PokemonIndex::P0,
+                    next_index: PokemonIndex::P1,
+                }),
+            ],
+        },
+        StateInstructions {
+            percentage: 50.0,
+            instruction_list: vec![
+                Instruction::Switch(SwitchInstruction {
+                    side_ref: SideReference::SideTwo,
+                    previous_index: PokemonIndex::P0,
+                    next_index: PokemonIndex::P1,
+                }),
+                Instruction::Switch(SwitchInstruction {
+                    side_ref: SideReference::SideOne,
+                    previous_index: PokemonIndex::P0,
+                    next_index: PokemonIndex::P1,
+                }),
+                Instruction::Boost(BoostInstruction {
+                    side_ref: SideReference::SideTwo,
+                    stat: PokemonBoostableStat::Attack,
+                    amount: -1,
+                }),
+            ],
+        },
+    ];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_intimidate_when_both_sides_replace_fainted_pkmn() {
+    let mut state = State::default();
+    state.side_one.get_active().hp = 0;
+    state.side_two.get_active().hp = 0;
+    state.side_one.get_active().speed = 100;
+    state.side_two.get_active().speed = 150;
+    state.side_two.pokemon[PokemonIndex::P1].ability = Abilities::INTIMIDATE;
+
+    let vec_of_instructions = generate_instructions_with_state_assertion(
+        &mut state,
+        &MoveChoice::Switch(PokemonIndex::P1),
+        &MoveChoice::Switch(PokemonIndex::P1),
+    );
+
+    // the fainted pkmn speed does not decide the order, so intimidate hits the incoming pkmn
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Switch(SwitchInstruction {
+                side_ref: SideReference::SideOne,
+                previous_index: PokemonIndex::P0,
+                next_index: PokemonIndex::P1,
+            }),
+            Instruction::Switch(SwitchInstruction {
+                side_ref: SideReference::SideTwo,
+                previous_index: PokemonIndex::P0,
+                next_index: PokemonIndex::P1,
+            }),
+            Instruction::Boost(BoostInstruction {
+                side_ref: SideReference::SideOne,
+                stat: PokemonBoostableStat::Attack,
+                amount: -1,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
 fn test_defiant_against_intimidate() {
     let mut state = State::default();
     state.side_two.get_active().ability = Abilities::DEFIANT;
