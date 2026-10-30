@@ -22438,6 +22438,82 @@ fn test_dryskin_in_rain() {
 }
 
 #[test]
+fn test_dryskin_in_sun() {
+    let mut state = State::default();
+    state.side_two.get_active().ability = Abilities::DRYSKIN;
+    state.weather.weather_type = Weather::SUN;
+    state.weather.turns_remaining = -1;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![Instruction::Damage(DamageInstruction {
+            side_ref: SideReference::SideTwo,
+            damage_amount: 12,
+        })],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_dryskin_in_harshsun() {
+    let mut state = State::default();
+    state.side_two.get_active().ability = Abilities::DRYSKIN;
+    state.weather.weather_type = Weather::HARSHSUN;
+    state.weather.turns_remaining = -1;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![Instruction::Damage(DamageInstruction {
+            side_ref: SideReference::SideTwo,
+            damage_amount: 12,
+        })],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_dryskin_sun_damage_happens_before_leftovers() {
+    let mut state = State::default();
+    state.side_two.get_active().ability = Abilities::DRYSKIN;
+    state.side_two.get_active().item = Items::LEFTOVERS;
+    state.weather.weather_type = Weather::SUN;
+    state.weather.turns_remaining = -1;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideTwo,
+                damage_amount: 12,
+            }),
+            Instruction::Heal(HealInstruction {
+                side_ref: SideReference::SideTwo,
+                heal_amount: 6,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
 fn test_shedskin_end_of_turn() {
     let mut state = State::default();
     state.side_two.get_active().ability = Abilities::SHEDSKIN;
