@@ -183,6 +183,76 @@ fn test_highcrit_move() {
     assert_eq!(expected_instructions, vec_of_instructions);
 }
 
+// Chance of the crit branch of a Water Gun into a 100 HP target (the branch with the most damage)
+fn water_gun_crit_percentage(state: &mut State) -> f32 {
+    state.side_two.get_active().hp = 100;
+    state
+        .side_one
+        .get_active()
+        .replace_move(PokemonMoveIndex::M0, Choices::WATERGUN);
+    state
+        .side_two
+        .get_active()
+        .replace_move(PokemonMoveIndex::M0, Choices::SPLASH);
+    let vec_of_instructions = generate_instructions_from_move_pair(
+        state,
+        &MoveChoice::Move(PokemonMoveIndex::M0),
+        &MoveChoice::Move(PokemonMoveIndex::M0),
+        true,
+    );
+    let damage = |i: &StateInstructions| match i.instruction_list.first() {
+        Some(Instruction::Damage(d)) => d.damage_amount,
+        _ => 0,
+    };
+    let crit = vec_of_instructions.iter().max_by_key(|i| damage(i)).unwrap();
+    crit.percentage
+}
+
+#[test]
+fn test_scope_lens_raises_crit_stage() {
+    let mut state = State::default();
+    state.side_one.get_active().item = Items::SCOPELENS;
+    assert_eq!(12.5, water_gun_crit_percentage(&mut state));
+}
+
+#[test]
+fn test_super_luck_raises_crit_stage() {
+    let mut state = State::default();
+    state.side_one.get_active().ability = Abilities::SUPERLUCK;
+    assert_eq!(12.5, water_gun_crit_percentage(&mut state));
+}
+
+#[test]
+#[cfg(not(any(feature = "gen4", feature = "gen5")))]
+fn test_focus_energy_raises_crit_stage_by_two() {
+    let mut state = State::default();
+    state
+        .side_one
+        .volatile_statuses
+        .insert(PokemonVolatileStatus::FOCUSENERGY);
+    assert_eq!(50.0, water_gun_crit_percentage(&mut state));
+}
+
+#[test]
+#[cfg(not(any(feature = "gen4", feature = "gen5")))]
+fn test_focus_energy_and_scope_lens_always_crit() {
+    let mut state = State::default();
+    state
+        .side_one
+        .volatile_statuses
+        .insert(PokemonVolatileStatus::FOCUSENERGY);
+    state.side_one.get_active().item = Items::RAZORCLAW;
+    assert_eq!(100.0, water_gun_crit_percentage(&mut state));
+}
+
+#[test]
+fn test_merciless_always_crits_a_poisoned_target() {
+    let mut state = State::default();
+    state.side_one.get_active().ability = Abilities::MERCILESS;
+    state.side_two.get_active().status = PokemonStatus::POISON;
+    assert_eq!(100.0, water_gun_crit_percentage(&mut state));
+}
+
 #[test]
 fn test_wickedblow_always_crits_without_a_branch() {
     let mut state = State::default();

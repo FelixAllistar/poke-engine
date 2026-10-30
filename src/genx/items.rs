@@ -182,6 +182,8 @@ define_enum_with_from_str! {
         CORNERSTONEMASK,
         WIDELENS,
         LOADEDDICE,
+        SCOPELENS,
+        RAZORCLAW,
         RUSTEDSWORD,
         RUSTEDSHIELD,
         WHITEHERB,
