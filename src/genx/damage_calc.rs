@@ -583,6 +583,16 @@ fn common_pkmn_damage_calc(
         } else {
             _type_effectiveness_modifier(&choice.move_type, &defending_types)
         };
+        // terastallizing turns terapagos into its stellar form, which loses tera shell
+        if defender.ability == Abilities::TERASHELL
+            && !defender.terastallized
+            && defender.hp == defender.maxhp
+            && damage_modifier >= 1.0
+            && choice.move_id != Choices::STRUGGLE
+            && !ignores_target_ability(attacker, choice, &defender.ability)
+        {
+            damage_modifier = 0.5;
+        }
     }
 
     if attacker.ability != Abilities::CLOUDNINE
