@@ -911,6 +911,39 @@ fn get_instructions_from_status_effects(
         })
     };
     incoming_instructions.instruction_list.push(instruction);
+
+    // the status came from the other side's active, which Synchronize hits back
+    #[cfg(feature = "gen4")]
+    let sync_status = match status.status {
+        PokemonStatus::TOXIC => PokemonStatus::POISON,
+        s => s,
+    };
+    #[cfg(not(feature = "gen4"))]
+    let sync_status = status.status;
+    if state
+        .get_side_immutable(&target_side_ref)
+        .get_active_immutable()
+        .ability
+        == Abilities::SYNCHRONIZE
+        && matches!(
+            sync_status,
+            PokemonStatus::BURN
+                | PokemonStatus::PARALYZE
+                | PokemonStatus::POISON
+                | PokemonStatus::TOXIC
+        )
+    {
+        get_instructions_from_status_effects(
+            state,
+            &Status {
+                target: MoveTarget::Opponent,
+                status: sync_status,
+            },
+            &target_side_ref,
+            incoming_instructions,
+            false,
+        );
+    }
 }
 
 pub fn get_boost_amount(side: &Side, boost: &PokemonBoostableStat, amount: i8) -> i8 {
@@ -1039,22 +1072,17 @@ fn get_instructions_from_boosts(
 }
 
 fn compare_health_with_damage_multiples(max_damage: i16, health: i16) -> (i16, i16) {
-    let max_damage_f32 = max_damage as f32;
-    let health_f32 = health as f32;
-
     let mut total_less_than = 0;
     let mut num_less_than = 0;
     let mut num_greater_than = 0;
-    let increment = max_damage as f32 * 0.01;
-    let mut damage = max_damage_f32 * 0.85;
-    for _ in 0..16 {
-        if damage < health_f32 {
-            total_less_than += damage as i16;
+    for roll in 85..=100 {
+        let damage = (max_damage as i32 * roll / 100) as i16;
+        if damage < health {
+            total_less_than += damage;
             num_less_than += 1;
-        } else if damage > health_f32 {
+        } else {
             num_greater_than += 1;
         }
-        damage += increment;
     }
 
     (total_less_than / num_less_than, num_greater_than)
@@ -2988,6 +3016,12 @@ fn add_end_of_turn_instructions(
         if state.terrain.terrain_type == Terrain::GRASSYTERRAIN {
             for side_ref in sides {
                 let side = state.get_side(side_ref);
+                if side
+                    .volatile_statuses
+                    .contains(&PokemonVolatileStatus::HEALBLOCK)
+                {
+                    continue;
+                }
                 let active_pkmn = side.get_active();
                 if active_pkmn.hp == 0 || !active_pkmn.is_grounded() {
                     continue;
@@ -3180,13 +3214,20 @@ fn add_end_of_turn_instructions(
     for side_ref in sides {
         let side = state.get_side(side_ref);
         let side_wish = side.wish;
+        let heal_blocked = side
+            .volatile_statuses
+            .contains(&PokemonVolatileStatus::HEALBLOCK);
         let active_pkmn = side.get_active();
 
         if side_wish.0 > 0 {
             let decrement_wish_instruction = Instruction::DecrementWish(DecrementWishInstruction {
                 side_ref: *side_ref,
             });
-            if side_wish.0 == 1 && 0 < active_pkmn.hp && active_pkmn.hp < active_pkmn.maxhp {
+            if side_wish.0 == 1
+                && !heal_blocked
+                && 0 < active_pkmn.hp
+                && active_pkmn.hp < active_pkmn.maxhp
+            {
                 #[cfg(not(feature = "gen4"))]
                 let heal_amount = cmp::min(active_pkmn.maxhp - active_pkmn.hp, side_wish.1);
 
@@ -3212,12 +3253,18 @@ fn add_end_of_turn_instructions(
 
     // leftovers / black sludge
     for side_ref in sides {
-        let active_pkmn = state.get_side(side_ref).get_active();
+        let side = state.get_side(side_ref);
+        // gen4 Heal Block only stops drain, Leech Seed and Wish
+        let heal_blocked = cfg!(not(feature = "gen4"))
+            && side
+                .volatile_statuses
+                .contains(&PokemonVolatileStatus::HEALBLOCK);
+        let active_pkmn = side.get_active();
         if active_pkmn.hp == 0 {
             continue;
         }
         match active_pkmn.item {
-            Items::LEFTOVERS if active_pkmn.hp < active_pkmn.maxhp => {
+            Items::LEFTOVERS if active_pkmn.hp < active_pkmn.maxhp && !heal_blocked => {
                 let heal_amount =
                     cmp::min(active_pkmn.maxhp / 16, active_pkmn.maxhp - active_pkmn.hp);
                 let ins = Instruction::Heal(HealInstruction {
@@ -3229,7 +3276,7 @@ fn add_end_of_turn_instructions(
             }
             Items::BLACKSLUDGE => {
                 if active_pkmn.has_type(&PokemonType::POISON) {
-                    if active_pkmn.hp < active_pkmn.maxhp {
+                    if active_pkmn.hp < active_pkmn.maxhp && !heal_blocked {
                         let heal_amount =
                             cmp::min(active_pkmn.maxhp / 16, active_pkmn.maxhp - active_pkmn.hp);
                         let ins = Instruction::Heal(HealInstruction {
