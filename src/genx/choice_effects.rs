@@ -1460,7 +1460,10 @@ pub fn choice_special_effect(
             let attacking_side = state.get_side(attacking_side_ref);
             let active_index = attacking_side.active_index;
             let active_pkmn = attacking_side.get_active();
-            if active_pkmn.status != PokemonStatus::SLEEP && !electric_terrain_active {
+            if active_pkmn.status != PokemonStatus::SLEEP
+                && active_pkmn.hp < active_pkmn.maxhp
+                && !electric_terrain_active
+            {
                 let heal_amount = active_pkmn.maxhp - active_pkmn.hp;
                 instructions
                     .instruction_list
