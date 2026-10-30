@@ -642,9 +642,22 @@ fn generate_instructions_from_side_conditions(
     match side_condition.condition {
         PokemonSideCondition::AuroraVeil
         | PokemonSideCondition::LightScreen
-        | PokemonSideCondition::Reflect
-        | PokemonSideCondition::Safeguard
-        | PokemonSideCondition::Mist => {
+        | PokemonSideCondition::Reflect => {
+            // Light Clay extends the user's screens from 5 turns to 8
+            let light_clay = state
+                .get_side_immutable(attacking_side_reference)
+                .get_active_immutable()
+                .item
+                == Items::LIGHTCLAY;
+            generate_instructions_from_duration_side_conditions(
+                state,
+                side_condition,
+                attacking_side_reference,
+                incoming_instructions,
+                SIDE_CONDITION_DURATION + 3 * light_clay as i8,
+            );
+        }
+        PokemonSideCondition::Safeguard | PokemonSideCondition::Mist => {
             generate_instructions_from_duration_side_conditions(
                 state,
                 side_condition,
