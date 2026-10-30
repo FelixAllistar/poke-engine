@@ -66,6 +66,7 @@ pub enum Instruction {
     ChangeSpeed(ChangeStatInstruction),
     DisableMove(DisableMoveInstruction),
     EnableMove(EnableMoveInstruction),
+    ChangeMove(ChangeMoveInstruction),
     ChangeWish(ChangeWishInstruction),
     DecrementWish(DecrementWishInstruction),
     SetFutureSight(SetFutureSightInstruction),
@@ -219,6 +220,13 @@ impl fmt::Debug for Instruction {
             }
             Instruction::EnableMove(e) => {
                 write!(f, "EnableMove {:?}: {:?}", e.side_ref, e.move_index)
+            }
+            Instruction::ChangeMove(c) => {
+                write!(
+                    f,
+                    "ChangeMove {:?}: {:?} {}",
+                    c.side_ref, c.move_index, c.move_change
+                )
             }
             Instruction::ChangeWish(s) => {
                 write!(f, "SetWish {:?}: {:?}", s.side_ref, s.wish_amount_change)
@@ -450,6 +458,16 @@ pub struct EnableMoveInstruction {
 pub struct DisableMoveInstruction {
     pub side_ref: SideReference,
     pub move_index: PokemonMoveIndex,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ChangeMoveInstruction {
+    pub side_ref: SideReference,
+    pub move_index: PokemonMoveIndex,
+
+    // Choices is represented as u16
+    // This is the amount the move has changed by
+    pub move_change: i16,
 }
 
 #[derive(Debug, PartialEq, Clone)]

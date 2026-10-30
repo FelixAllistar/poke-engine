@@ -13,16 +13,16 @@ use poke_engine::instruction::Instruction::ToggleSideOneForceSwitch;
 use poke_engine::instruction::{
     ApplyVolatileStatusInstruction, BoostInstruction, ChangeAbilityInstruction,
     ChangeDamageDealtDamageInstruction, ChangeDamageDealtMoveCategoryInstruction,
-    ChangeItemInstruction, ChangeSideConditionInstruction, ChangeStatInstruction,
-    ChangeStatusInstruction, ChangeSubsituteHealthInstruction, ChangeTerrain, ChangeType,
-    ChangeVolatileStatusDurationInstruction, ChangeWeather, ChangeWishInstruction,
-    DamageInstruction, DecrementFutureSightInstruction, DecrementPPInstruction,
-    DecrementRestTurnsInstruction, DecrementWishInstruction, DisableMoveInstruction,
-    EnableMoveInstruction, FormeChangeInstruction, HealInstruction, Instruction,
-    RemoveVolatileStatusInstruction, SetFutureSightInstruction, SetLastUsedMoveInstruction,
-    SetSecondMoveSwitchOutMoveInstruction, SetSleepTurnsInstruction, StateInstructions,
-    SwitchInstruction, ToggleBatonPassingInstruction, ToggleMegaEvolvedInstruction,
-    ToggleShedTailingInstruction, ToggleTrickRoomInstruction,
+    ChangeItemInstruction, ChangeMoveInstruction, ChangeSideConditionInstruction,
+    ChangeStatInstruction, ChangeStatusInstruction, ChangeSubsituteHealthInstruction,
+    ChangeTerrain, ChangeType, ChangeVolatileStatusDurationInstruction, ChangeWeather,
+    ChangeWishInstruction, DamageInstruction, DecrementFutureSightInstruction,
+    DecrementPPInstruction, DecrementRestTurnsInstruction, DecrementWishInstruction,
+    DisableMoveInstruction, EnableMoveInstruction, FormeChangeInstruction, HealInstruction,
+    Instruction, RemoveVolatileStatusInstruction, SetFutureSightInstruction,
+    SetLastUsedMoveInstruction, SetSecondMoveSwitchOutMoveInstruction, SetSleepTurnsInstruction,
+    StateInstructions, SwitchInstruction, ToggleBatonPassingInstruction,
+    ToggleMegaEvolvedInstruction, ToggleShedTailingInstruction, ToggleTrickRoomInstruction,
 };
 use poke_engine::pokemon::PokemonName;
 use poke_engine::state::{
@@ -19915,6 +19915,332 @@ fn test_trace_switching_ability_on_switch_in_activating_said_ability() {
                 side_ref: SideReference::SideTwo,
                 stat: PokemonBoostableStat::Attack,
                 amount: -1,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_imposter_transforms_into_opposing_active_on_switch_in() {
+    let mut state = State::default();
+    let ditto = &mut state.side_one.pokemon[PokemonIndex::P1];
+    ditto.id = PokemonName::DITTO;
+    ditto.ability = Abilities::IMPOSTER;
+    ditto.base_ability = Abilities::IMPOSTER;
+    ditto.replace_move(PokemonMoveIndex::M0, Choices::TRANSFORM);
+    ditto.moves[&PokemonMoveIndex::M0].pp = 16;
+
+    let floatzel = state.side_two.get_active();
+    floatzel.id = PokemonName::FLOATZEL;
+    floatzel.types = (PokemonType::WATER, PokemonType::TYPELESS);
+    floatzel.ability = Abilities::WATERVEIL;
+    floatzel.attack = 230;
+    floatzel.defense = 144;
+    floatzel.special_attack = 195;
+    floatzel.special_defense = 135;
+    floatzel.speed = 247;
+    floatzel.replace_move(PokemonMoveIndex::M0, Choices::WAVECRASH);
+    floatzel.replace_move(PokemonMoveIndex::M1, Choices::BULKUP);
+    state.side_two.attack_boost = 1;
+    state.side_two.defense_boost = 1;
+
+    let vec_of_instructions = generate_instructions_with_state_assertion(
+        &mut state,
+        &MoveChoice::Switch(PokemonIndex::P1),
+        &MoveChoice::None,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Switch(SwitchInstruction {
+                side_ref: SideReference::SideOne,
+                previous_index: PokemonIndex::P0,
+                next_index: PokemonIndex::P1,
+            }),
+            Instruction::FormeChange(FormeChangeInstruction {
+                side_ref: SideReference::SideOne,
+                name_change: PokemonName::FLOATZEL as i16 - PokemonName::DITTO as i16,
+            }),
+            Instruction::ChangeType(ChangeType {
+                side_ref: SideReference::SideOne,
+                new_types: (PokemonType::WATER, PokemonType::TYPELESS),
+                old_types: (PokemonType::NORMAL, PokemonType::TYPELESS),
+            }),
+            Instruction::ChangeAttack(ChangeStatInstruction {
+                side_ref: SideReference::SideOne,
+                amount: 130,
+            }),
+            Instruction::ChangeDefense(ChangeStatInstruction {
+                side_ref: SideReference::SideOne,
+                amount: 44,
+            }),
+            Instruction::ChangeSpecialAttack(ChangeStatInstruction {
+                side_ref: SideReference::SideOne,
+                amount: 95,
+            }),
+            Instruction::ChangeSpecialDefense(ChangeStatInstruction {
+                side_ref: SideReference::SideOne,
+                amount: 35,
+            }),
+            Instruction::ChangeSpeed(ChangeStatInstruction {
+                side_ref: SideReference::SideOne,
+                amount: 147,
+            }),
+            Instruction::ChangeAbility(ChangeAbilityInstruction {
+                side_ref: SideReference::SideOne,
+                ability_change: Abilities::WATERVEIL as i16 - Abilities::IMPOSTER as i16,
+            }),
+            Instruction::ApplyVolatileStatus(ApplyVolatileStatusInstruction {
+                side_ref: SideReference::SideOne,
+                volatile_status: PokemonVolatileStatus::TYPECHANGE,
+            }),
+            Instruction::ChangeMove(ChangeMoveInstruction {
+                side_ref: SideReference::SideOne,
+                move_index: PokemonMoveIndex::M0,
+                move_change: Choices::WAVECRASH as i16 - Choices::TRANSFORM as i16,
+            }),
+            Instruction::DecrementPP(DecrementPPInstruction {
+                side_ref: SideReference::SideOne,
+                move_index: PokemonMoveIndex::M0,
+                amount: 11,
+            }),
+            Instruction::ChangeMove(ChangeMoveInstruction {
+                side_ref: SideReference::SideOne,
+                move_index: PokemonMoveIndex::M1,
+                move_change: Choices::BULKUP as i16 - Choices::NONE as i16,
+            }),
+            Instruction::DecrementPP(DecrementPPInstruction {
+                side_ref: SideReference::SideOne,
+                move_index: PokemonMoveIndex::M1,
+                amount: 27,
+            }),
+            Instruction::DecrementPP(DecrementPPInstruction {
+                side_ref: SideReference::SideOne,
+                move_index: PokemonMoveIndex::M2,
+                amount: 27,
+            }),
+            Instruction::DecrementPP(DecrementPPInstruction {
+                side_ref: SideReference::SideOne,
+                move_index: PokemonMoveIndex::M3,
+                amount: 27,
+            }),
+            Instruction::Boost(BoostInstruction {
+                side_ref: SideReference::SideOne,
+                stat: PokemonBoostableStat::Attack,
+                amount: 1,
+            }),
+            Instruction::Boost(BoostInstruction {
+                side_ref: SideReference::SideOne,
+                stat: PokemonBoostableStat::Defense,
+                amount: 1,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_imposter_does_not_transform_into_substitute() {
+    let mut state = State::default();
+    state.side_one.pokemon[PokemonIndex::P1].id = PokemonName::DITTO;
+    state.side_one.pokemon[PokemonIndex::P1].ability = Abilities::IMPOSTER;
+    state.side_two.get_active().id = PokemonName::FLOATZEL;
+    state
+        .side_two
+        .volatile_statuses
+        .insert(PokemonVolatileStatus::SUBSTITUTE);
+    state.side_two.substitute_health = 25;
+
+    let vec_of_instructions = generate_instructions_with_state_assertion(
+        &mut state,
+        &MoveChoice::Switch(PokemonIndex::P1),
+        &MoveChoice::None,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![Instruction::Switch(SwitchInstruction {
+            side_ref: SideReference::SideOne,
+            previous_index: PokemonIndex::P0,
+            next_index: PokemonIndex::P1,
+        })],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_imposter_does_not_transform_into_transformed_imposter() {
+    let mut state = State::default();
+    state.side_one.pokemon[PokemonIndex::P1].id = PokemonName::DITTO;
+    state.side_one.pokemon[PokemonIndex::P1].ability = Abilities::IMPOSTER;
+    let transformed_ditto = state.side_two.get_active();
+    transformed_ditto.id = PokemonName::FLOATZEL;
+    transformed_ditto.ability = Abilities::WATERVEIL;
+    transformed_ditto.base_ability = Abilities::IMPOSTER;
+
+    let vec_of_instructions = generate_instructions_with_state_assertion(
+        &mut state,
+        &MoveChoice::Switch(PokemonIndex::P1),
+        &MoveChoice::None,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![Instruction::Switch(SwitchInstruction {
+            side_ref: SideReference::SideOne,
+            previous_index: PokemonIndex::P0,
+            next_index: PokemonIndex::P1,
+        })],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_imposter_copying_intimidate_activates_intimidate() {
+    let mut state = State::default();
+    state.side_one.pokemon[PokemonIndex::P1].id = PokemonName::DITTO;
+    state.side_one.pokemon[PokemonIndex::P1].ability = Abilities::IMPOSTER;
+    let gyarados = state.side_two.get_active();
+    gyarados.id = PokemonName::GYARADOS;
+    gyarados.types = (PokemonType::WATER, PokemonType::FLYING);
+    gyarados.ability = Abilities::INTIMIDATE;
+
+    let vec_of_instructions = generate_instructions_with_state_assertion(
+        &mut state,
+        &MoveChoice::Switch(PokemonIndex::P1),
+        &MoveChoice::None,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Switch(SwitchInstruction {
+                side_ref: SideReference::SideOne,
+                previous_index: PokemonIndex::P0,
+                next_index: PokemonIndex::P1,
+            }),
+            Instruction::FormeChange(FormeChangeInstruction {
+                side_ref: SideReference::SideOne,
+                name_change: PokemonName::GYARADOS as i16 - PokemonName::DITTO as i16,
+            }),
+            Instruction::ChangeType(ChangeType {
+                side_ref: SideReference::SideOne,
+                new_types: (PokemonType::WATER, PokemonType::FLYING),
+                old_types: (PokemonType::NORMAL, PokemonType::TYPELESS),
+            }),
+            Instruction::ChangeSpeed(ChangeStatInstruction {
+                side_ref: SideReference::SideOne,
+                amount: 1,
+            }),
+            Instruction::ChangeAbility(ChangeAbilityInstruction {
+                side_ref: SideReference::SideOne,
+                ability_change: Abilities::INTIMIDATE as i16 - Abilities::IMPOSTER as i16,
+            }),
+            Instruction::ApplyVolatileStatus(ApplyVolatileStatusInstruction {
+                side_ref: SideReference::SideOne,
+                volatile_status: PokemonVolatileStatus::TYPECHANGE,
+            }),
+            Instruction::DecrementPP(DecrementPPInstruction {
+                side_ref: SideReference::SideOne,
+                move_index: PokemonMoveIndex::M0,
+                amount: 27,
+            }),
+            Instruction::DecrementPP(DecrementPPInstruction {
+                side_ref: SideReference::SideOne,
+                move_index: PokemonMoveIndex::M1,
+                amount: 27,
+            }),
+            Instruction::DecrementPP(DecrementPPInstruction {
+                side_ref: SideReference::SideOne,
+                move_index: PokemonMoveIndex::M2,
+                amount: 27,
+            }),
+            Instruction::DecrementPP(DecrementPPInstruction {
+                side_ref: SideReference::SideOne,
+                move_index: PokemonMoveIndex::M3,
+                amount: 27,
+            }),
+            Instruction::Boost(BoostInstruction {
+                side_ref: SideReference::SideTwo,
+                stat: PokemonBoostableStat::Attack,
+                amount: -1,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_transformed_imposter_reverts_to_ditto_on_switch_out() {
+    let mut state = State::default();
+    let ditto = state.side_one.get_active();
+    ditto.id = PokemonName::FLOATZEL;
+    ditto.ability = Abilities::WATERVEIL;
+    ditto.base_ability = Abilities::IMPOSTER;
+    ditto.types = (PokemonType::WATER, PokemonType::TYPELESS);
+    ditto.attack = 230;
+    ditto.defense = 144;
+    ditto.special_attack = 195;
+    ditto.special_defense = 135;
+    ditto.speed = 247;
+    state
+        .side_one
+        .volatile_statuses
+        .insert(PokemonVolatileStatus::TYPECHANGE);
+
+    let vec_of_instructions = generate_instructions_with_state_assertion(
+        &mut state,
+        &MoveChoice::Switch(PokemonIndex::P1),
+        &MoveChoice::None,
+    );
+
+    // ditto has 153 in each stat at level 100 with 85 evs and a neutral nature
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::ChangeType(ChangeType {
+                side_ref: SideReference::SideOne,
+                new_types: (PokemonType::NORMAL, PokemonType::TYPELESS),
+                old_types: (PokemonType::WATER, PokemonType::TYPELESS),
+            }),
+            Instruction::RemoveVolatileStatus(RemoveVolatileStatusInstruction {
+                side_ref: SideReference::SideOne,
+                volatile_status: PokemonVolatileStatus::TYPECHANGE,
+            }),
+            Instruction::FormeChange(FormeChangeInstruction {
+                side_ref: SideReference::SideOne,
+                name_change: PokemonName::DITTO as i16 - PokemonName::FLOATZEL as i16,
+            }),
+            Instruction::ChangeAttack(ChangeStatInstruction {
+                side_ref: SideReference::SideOne,
+                amount: 153 - 230,
+            }),
+            Instruction::ChangeDefense(ChangeStatInstruction {
+                side_ref: SideReference::SideOne,
+                amount: 153 - 144,
+            }),
+            Instruction::ChangeSpecialAttack(ChangeStatInstruction {
+                side_ref: SideReference::SideOne,
+                amount: 153 - 195,
+            }),
+            Instruction::ChangeSpecialDefense(ChangeStatInstruction {
+                side_ref: SideReference::SideOne,
+                amount: 153 - 135,
+            }),
+            Instruction::ChangeSpeed(ChangeStatInstruction {
+                side_ref: SideReference::SideOne,
+                amount: 153 - 247,
+            }),
+            Instruction::ChangeAbility(ChangeAbilityInstruction {
+                side_ref: SideReference::SideOne,
+                ability_change: Abilities::IMPOSTER as i16 - Abilities::WATERVEIL as i16,
+            }),
+            Instruction::Switch(SwitchInstruction {
+                side_ref: SideReference::SideOne,
+                previous_index: PokemonIndex::P0,
+                next_index: PokemonIndex::P1,
             }),
         ],
     }];
