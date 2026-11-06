@@ -421,14 +421,19 @@ pub fn ability_modify_attack_being_used(
                 attacker_choice.accuracy *= 0.80
             }
         }
+        // Showdown: guts onModifyAtk, so physical moves only. This runs before the sleep and freeze checks: a sleeping
+        // or frozen Pokemon only attacks after waking or thawing, when the status is gone (Sleep Talk excepted).
         Abilities::GUTS => {
-            if attacking_pkmn.status != PokemonStatus::NONE {
+            let status = attacking_pkmn.status;
+            if status != PokemonStatus::NONE
+                && attacker_choice.category == MoveCategory::Physical
+                && (attacker_choice.sleep_talk_move
+                    || !matches!(status, PokemonStatus::SLEEP | PokemonStatus::FREEZE))
+            {
                 attacker_choice.base_power *= 1.5;
 
                 // not the right place to put this, but good enough
-                if attacking_pkmn.status == PokemonStatus::BURN
-                    && attacker_choice.category == MoveCategory::Physical
-                {
+                if status == PokemonStatus::BURN {
                     attacker_choice.base_power *= 2.0;
                 }
             }

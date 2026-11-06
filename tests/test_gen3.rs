@@ -1012,3 +1012,53 @@ fn test_pinch_berry_does_not_activate_from_this_turns_poison_damage() {
     }];
     assert_eq!(expected_instructions, vec_of_instructions);
 }
+
+fn damage_to_side_two(state: &mut State, move_one: Choices) -> i16 {
+    let vec_of_instructions =
+        set_moves_on_pkmn_and_call_generate_instructions(state, move_one, Choices::SPLASH);
+    let mut damage = 0;
+    for ins in &vec_of_instructions[0].instruction_list {
+        if let Instruction::Damage(d) = ins {
+            if d.side_ref == SideReference::SideTwo {
+                damage += d.damage_amount;
+            }
+        }
+    }
+    damage
+}
+
+#[test]
+fn test_guts_does_not_boost_special_moves() {
+    let mut plain = State::default();
+    plain.side_two.get_active().maxhp = 500;
+    plain.side_two.get_active().hp = 500;
+    let mut guts = State::default();
+    guts.side_two.get_active().maxhp = 500;
+    guts.side_two.get_active().hp = 500;
+    guts.side_one.get_active().ability = Abilities::GUTS;
+    guts.side_one.get_active().status = PokemonStatus::POISON;
+
+    // Surf is special in Gen 3 (Water)
+    assert_eq!(
+        damage_to_side_two(&mut plain, Choices::SURF),
+        damage_to_side_two(&mut guts, Choices::SURF)
+    );
+}
+
+#[test]
+fn test_guts_does_not_boost_the_attack_of_a_pokemon_waking_up() {
+    let mut plain = State::default();
+    plain.side_two.get_active().maxhp = 500;
+    plain.side_two.get_active().hp = 500;
+    let mut guts = State::default();
+    guts.side_two.get_active().maxhp = 500;
+    guts.side_two.get_active().hp = 500;
+    guts.side_one.get_active().ability = Abilities::GUTS;
+    guts.side_one.get_active().status = PokemonStatus::SLEEP;
+    guts.side_one.get_active().sleep_turns = 4; // wakes up for sure
+
+    assert_eq!(
+        damage_to_side_two(&mut plain, Choices::TACKLE),
+        damage_to_side_two(&mut guts, Choices::TACKLE)
+    );
+}
