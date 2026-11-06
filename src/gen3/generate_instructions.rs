@@ -2853,6 +2853,53 @@ fn run_move(
     }
 }
 
+// White Herb (Showdown data/items.js whiteherb: onAnySwitchIn, onAnyAfterMove, onResidual): once any of the
+// holder's boosts is negative, it is used up and every negative boost goes back to 0.
+fn after_move_finish(state: &mut State, final_instructions: &mut Vec<StateInstructions>) {
+    const STATS: [PokemonBoostableStat; 7] = [
+        PokemonBoostableStat::Attack,
+        PokemonBoostableStat::Defense,
+        PokemonBoostableStat::SpecialAttack,
+        PokemonBoostableStat::SpecialDefense,
+        PokemonBoostableStat::Speed,
+        PokemonBoostableStat::Accuracy,
+        PokemonBoostableStat::Evasion,
+    ];
+    for state_instructions in final_instructions.iter_mut() {
+        state.apply_instructions(&state_instructions.instruction_list);
+        for side_ref in [SideReference::SideOne, SideReference::SideTwo] {
+            let side = state.get_side_immutable(&side_ref);
+            if side.get_active_immutable().item != Items::WHITEHERB {
+                continue;
+            }
+            let boosts = STATS.map(|stat| side.get_boost_from_boost_enum(&stat));
+            let mut used = false;
+            for (stat, boost) in STATS.iter().zip(boosts) {
+                if boost < 0 {
+                    let ins = Instruction::Boost(BoostInstruction {
+                        side_ref,
+                        stat: *stat,
+                        amount: -boost,
+                    });
+                    state.apply_one_instruction(&ins);
+                    state_instructions.instruction_list.push(ins);
+                    used = true;
+                }
+            }
+            if used {
+                let ins = Instruction::ChangeItem(ChangeItemInstruction {
+                    side_ref,
+                    current_item: Items::WHITEHERB,
+                    new_item: Items::NONE,
+                });
+                state.apply_one_instruction(&ins);
+                state_instructions.instruction_list.push(ins);
+            }
+        }
+        state.reverse_instructions(&state_instructions.instruction_list);
+    }
+}
+
 fn handle_both_moves(
     state: &mut State,
     first_move_side_choice: &mut Choice,
@@ -2871,6 +2918,7 @@ fn handle_both_moves(
         state_instructions_vec,
         branch_on_damage,
     );
+    after_move_finish(state, state_instructions_vec);
 
     let mut i = 0;
     let vec_len = state_instructions_vec.len();
@@ -2886,6 +2934,7 @@ fn handle_both_moves(
             state_instructions_vec,
             branch_on_damage,
         );
+        after_move_finish(state, state_instructions_vec);
         i += 1;
     }
 }

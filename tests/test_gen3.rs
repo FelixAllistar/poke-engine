@@ -1105,3 +1105,33 @@ fn test_scope_lens_raises_crit_chance_by_one_stage() {
     state.side_one.get_active().item = Items::SCOPELENS;
     assert_eq!(12.5, crit_branch_percentage(&mut state));
 }
+
+#[test]
+fn test_whiteherb_restores_negative_boosts_after_overheat() {
+    let mut state = State::default();
+    state.side_one.get_active().item = Items::WHITEHERB;
+    state.side_two.get_active().maxhp = 500;
+    state.side_two.get_active().hp = 500;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::OVERHEAT,
+        Choices::SPLASH,
+    );
+
+    let hits: Vec<&StateInstructions> = vec_of_instructions
+        .iter()
+        .filter(|b| {
+            b.instruction_list.iter().any(
+                |i| matches!(i, Instruction::Damage(d) if d.side_ref == SideReference::SideTwo),
+            )
+        })
+        .collect();
+    assert!(!hits.is_empty());
+    for branch in hits {
+        let mut s = state.clone();
+        s.apply_instructions(&branch.instruction_list);
+        assert_eq!(0, s.side_one.special_attack_boost);
+        assert_eq!(Items::NONE, s.side_one.get_active_immutable().item);
+    }
+}

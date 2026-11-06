@@ -82,6 +82,7 @@ define_enum_with_from_str! {
         SPELLTAG,
         MIRACLESEED,
         SHELLBELL,
+        WHITEHERB,
         SCOPELENS,
         STICK,
         LUCKYPUNCH,
