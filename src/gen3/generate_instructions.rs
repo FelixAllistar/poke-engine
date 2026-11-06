@@ -538,6 +538,35 @@ fn get_instructions_from_status_effects(
         })
     };
     incoming_instructions.instruction_list.push(instruction);
+
+    // Synchronize (Showdown data/abilities.js onAfterSetStatus): a burn, paralysis or poison from the other side's
+    // active is passed back to it, Toxic as regular poison in Gen 3. It triggers even when Lum Berry then cures it.
+    let sync_status = match status.status {
+        PokemonStatus::TOXIC => PokemonStatus::POISON,
+        s => s,
+    };
+    if status.target == MoveTarget::Opponent
+        && state
+            .get_side_immutable(&target_side_ref)
+            .get_active_immutable()
+            .ability
+            == Abilities::SYNCHRONIZE
+        && matches!(
+            sync_status,
+            PokemonStatus::BURN | PokemonStatus::PARALYZE | PokemonStatus::POISON
+        )
+    {
+        get_instructions_from_status_effects(
+            state,
+            &Status {
+                target: MoveTarget::Opponent,
+                status: sync_status,
+            },
+            &target_side_ref,
+            incoming_instructions,
+            false,
+        );
+    }
 }
 
 pub fn get_boost_amount(side: &Side, boost: &PokemonBoostableStat, amount: i8) -> i8 {

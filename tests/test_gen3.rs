@@ -931,3 +931,59 @@ fn test_rockhead_prevents_recoil() {
         }
     }
 }
+
+#[test]
+fn test_synchronize_passes_toxic_back_as_poison() {
+    let mut state = State::default();
+    state.side_two.get_active().ability = Abilities::SYNCHRONIZE;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::TOXIC,
+        Choices::SPLASH,
+    );
+
+    // 85% hit: the target is badly poisoned and the user poisoned (then both take end-of-turn damage)
+    let hit = vec_of_instructions
+        .iter()
+        .find(|b| b.percentage > 50.0)
+        .unwrap();
+    assert_eq!(
+        Instruction::ChangeStatus(ChangeStatusInstruction {
+            side_ref: SideReference::SideTwo,
+            pokemon_index: PokemonIndex::P0,
+            old_status: PokemonStatus::NONE,
+            new_status: PokemonStatus::TOXIC,
+        }),
+        hit.instruction_list[0]
+    );
+    assert_eq!(
+        Instruction::ChangeStatus(ChangeStatusInstruction {
+            side_ref: SideReference::SideOne,
+            pokemon_index: PokemonIndex::P0,
+            old_status: PokemonStatus::NONE,
+            new_status: PokemonStatus::POISON,
+        }),
+        hit.instruction_list[1]
+    );
+}
+
+#[test]
+fn test_synchronize_does_not_pass_back_sleep() {
+    let mut state = State::default();
+    state.side_two.get_active().ability = Abilities::SYNCHRONIZE;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPORE,
+        Choices::SPLASH,
+    );
+
+    for branch in vec_of_instructions {
+        for ins in branch.instruction_list {
+            if let Instruction::ChangeStatus(c) = ins {
+                assert_eq!(SideReference::SideTwo, c.side_ref);
+            }
+        }
+    }
+}
