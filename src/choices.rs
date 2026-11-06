@@ -20492,6 +20492,37 @@ impl Choices {
             _ => false,
         }
     }
+    // Damaging moves that never miss (Showdown: accuracy true). They are stored with accuracy 100, so accuracy
+    // modifiers such as Hustle must skip them.
+    pub fn never_misses(&self) -> bool {
+        match self {
+            Choices::AERIALACE
+            | Choices::AURASPHERE
+            | Choices::BIDE
+            | Choices::CLEARSMOG
+            | Choices::DISARMINGVOICE
+            | Choices::FALSESURRENDER
+            | Choices::FEINTATTACK
+            | Choices::FLOWERTRICK
+            | Choices::HYPERSPACEFURY
+            | Choices::HYPERSPACEHOLE
+            | Choices::KOWTOWCLEAVE
+            | Choices::MAGICALLEAF
+            | Choices::MAGNETBOMB
+            | Choices::PIKAPAPOW
+            | Choices::SHADOWPUNCH
+            | Choices::SHOCKWAVE
+            | Choices::SMARTSTRIKE
+            | Choices::STRUGGLE
+            | Choices::SWIFT
+            | Choices::TACHYONCUTTER
+            | Choices::TRUMPCARD
+            | Choices::VEEVEEVOLLEY
+            | Choices::VITALTHROW => true,
+            _ => false,
+        }
+    }
+
     pub fn guaranteed_crit(&self) -> bool {
         match self {
             Choices::WICKEDBLOW

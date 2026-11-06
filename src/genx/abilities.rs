@@ -2395,7 +2395,10 @@ pub fn ability_modify_attack_being_used(
         Abilities::HUSTLE => {
             if attacker_choice.category == MoveCategory::Physical {
                 attacker_choice.base_power *= 1.5;
-                attacker_choice.accuracy *= 0.80
+                // Showdown: hustle onSourceModifyAccuracy only applies to a numeric accuracy
+                if !attacker_choice.move_id.never_misses() {
+                    attacker_choice.accuracy *= 0.80
+                }
             }
         }
         Abilities::POISONTOUCH => {

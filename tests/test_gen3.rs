@@ -1135,3 +1135,23 @@ fn test_whiteherb_restores_negative_boosts_after_overheat() {
         assert_eq!(Items::NONE, s.side_one.get_active_immutable().item);
     }
 }
+
+#[test]
+fn test_hustle_does_not_lower_the_accuracy_of_moves_that_never_miss() {
+    let mut state = State::default();
+    state.side_one.get_active().ability = Abilities::HUSTLE;
+    state.side_two.get_active().maxhp = 500;
+    state.side_two.get_active().hp = 500;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::AERIALACE,
+        Choices::SPLASH,
+    );
+
+    for branch in vec_of_instructions {
+        assert!(branch.instruction_list.iter().any(
+            |i| matches!(i, Instruction::Damage(d) if d.side_ref == SideReference::SideTwo)
+        ));
+    }
+}
