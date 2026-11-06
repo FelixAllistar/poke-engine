@@ -235,8 +235,14 @@ fn generate_instructions_from_switch(
     let side = state.get_side(&switching_side_ref);
     let switched_in_pkmn = side.get_active_immutable();
     if side.side_conditions.spikes > 0 && switched_in_pkmn.is_grounded() {
+        // 1/8, 1/6 and 1/4 of maxhp for 1, 2 and 3 layers (Showdown: [0, 3, 4, 6][layers] * maxhp / 24)
+        let layer_numerator = match side.side_conditions.spikes {
+            1 => 3,
+            2 => 4,
+            _ => 6,
+        };
         let dmg_amount = cmp::min(
-            switched_in_pkmn.maxhp * side.side_conditions.spikes as i16 / 8,
+            switched_in_pkmn.maxhp * layer_numerator / 24,
             switched_in_pkmn.hp,
         );
         let spikes_dmg_instruction = Instruction::Damage(DamageInstruction {

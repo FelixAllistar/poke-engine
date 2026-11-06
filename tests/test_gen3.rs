@@ -828,3 +828,34 @@ fn test_leftovers_heals_before_burn_damage_when_damaged() {
     }];
     assert_eq!(expected_instructions, vec_of_instructions);
 }
+
+#[test]
+fn test_two_layers_of_spikes_deal_one_sixth() {
+    // Showdown: [0, 3, 4, 6][layers] * maxhp / 24, so two layers are 1/6 (the engine used to deal layers/8 = 1/4).
+    let mut state = State::default();
+    state.side_one.side_conditions.spikes = 2;
+    state.side_one.pokemon[PokemonIndex::P1].maxhp = 240;
+    state.side_one.pokemon[PokemonIndex::P1].hp = 240;
+
+    let vec_of_instructions = generate_instructions_with_state_assertion(
+        &mut state,
+        &MoveChoice::Switch(PokemonIndex::P1),
+        &MoveChoice::None,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Switch(SwitchInstruction {
+                side_ref: SideReference::SideOne,
+                previous_index: PokemonIndex::P0,
+                next_index: PokemonIndex::P1,
+            }),
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideOne,
+                damage_amount: 40,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
