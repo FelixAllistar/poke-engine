@@ -911,3 +911,23 @@ fn test_toxic_from_a_poison_type_can_miss() {
     assert_eq!(2, vec_of_instructions.len());
     assert_eq!(15.0, vec_of_instructions[0].percentage.round());
 }
+
+#[test]
+fn test_rockhead_prevents_recoil() {
+    let mut state = State::default();
+    state.side_one.get_active().ability = Abilities::ROCKHEAD;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::DOUBLEEDGE,
+        Choices::SPLASH,
+    );
+
+    for branch in vec_of_instructions {
+        for ins in branch.instruction_list {
+            if let Instruction::Damage(d) = ins {
+                assert_eq!(SideReference::SideTwo, d.side_ref, "recoil: {:?}", d);
+            }
+        }
+    }
+}

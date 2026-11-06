@@ -346,6 +346,10 @@ pub fn ability_modify_attack_being_used(
     let (attacking_side, defending_side) = state.get_both_sides_immutable(attacking_side_ref);
     let attacking_pkmn = attacking_side.get_active_immutable();
     match attacking_pkmn.ability {
+        // no recoil, except Struggle's (Showdown: rockhead onDamage)
+        Abilities::ROCKHEAD if attacker_choice.move_id != Choices::STRUGGLE => {
+            attacker_choice.recoil = None;
+        }
         Abilities::PUREPOWER => {
             if attacker_choice.category == MoveCategory::Physical {
                 attacker_choice.base_power *= 2.0;
