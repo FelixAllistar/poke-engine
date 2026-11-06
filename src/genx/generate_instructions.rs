@@ -2456,7 +2456,7 @@ pub fn generate_instructions_from_move(
                 attacking_side,
                 sleep_talk_instructions,
                 &mut final_instructions,
-                false,
+                branch_on_damage,
             );
         }
         return;

@@ -1155,3 +1155,31 @@ fn test_hustle_does_not_lower_the_accuracy_of_moves_that_never_miss() {
         ));
     }
 }
+
+#[test]
+fn test_sleep_talk_move_branches_on_a_roll_that_can_kill() {
+    let mut state = State::default();
+    state.side_one.get_active().status = PokemonStatus::SLEEP;
+    state.side_one.get_active().sleep_turns = 1;
+    state.side_one.get_active().replace_move(PokemonMoveIndex::M1, Choices::TACKLE);
+    state.side_two.get_active().hp = 50;
+
+    state
+        .side_one
+        .get_active()
+        .replace_move(PokemonMoveIndex::M0, Choices::SLEEPTALK);
+    state
+        .side_two
+        .get_active()
+        .replace_move(PokemonMoveIndex::M0, Choices::SPLASH);
+    let branches = generate_instructions_from_move_pair(
+        &mut state,
+        &MoveChoice::Move(PokemonMoveIndex::M0),
+        &MoveChoice::Move(PokemonMoveIndex::M0),
+        true,
+    );
+    // Tackle's roll (44-52) can kill a 50 HP target, so the called Tackle has a kill branch
+    assert!(branches.iter().any(|b| b.instruction_list.iter().any(
+        |i| matches!(i, Instruction::Damage(d) if d.side_ref == SideReference::SideTwo && d.damage_amount == 50)
+    )));
+}
