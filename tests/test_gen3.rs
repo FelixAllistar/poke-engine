@@ -878,3 +878,20 @@ fn test_speedboost_does_not_boost_on_the_turn_of_switching_in() {
         }
     }
 }
+
+#[test]
+fn test_rest_fails_at_full_hp() {
+    let mut state = State::default();
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::REST,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}

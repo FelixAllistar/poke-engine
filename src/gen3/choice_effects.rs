@@ -508,7 +508,7 @@ pub fn choice_special_effect(
         Choices::REST => {
             let active_index = attacking_side.active_index;
             let active_pkmn = attacking_side.get_active();
-            if active_pkmn.status != PokemonStatus::SLEEP {
+            if active_pkmn.status != PokemonStatus::SLEEP && active_pkmn.hp < active_pkmn.maxhp {
                 let heal_amount = active_pkmn.maxhp - active_pkmn.hp;
                 instructions
                     .instruction_list
