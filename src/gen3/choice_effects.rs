@@ -85,14 +85,6 @@ pub fn modify_choice(
                 attacker_choice.base_power *= 2.0;
             }
         }
-        Choices::TOXIC => {
-            if attacking_side
-                .get_active_immutable()
-                .has_type(&PokemonType::POISON)
-            {
-                attacker_choice.accuracy = 100.0;
-            }
-        }
         Choices::WEATHERBALL => match state.weather.weather_type {
             Weather::SUN => {
                 attacker_choice.base_power = 100.0;

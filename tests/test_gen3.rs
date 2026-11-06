@@ -895,3 +895,19 @@ fn test_rest_fails_at_full_hp() {
     }];
     assert_eq!(expected_instructions, vec_of_instructions);
 }
+
+#[test]
+fn test_toxic_from_a_poison_type_can_miss() {
+    // Poison-type users never miss with Toxic only from Gen 6 on; in Gen 3 it is 85% for everyone.
+    let mut state = State::default();
+    state.side_one.get_active().types = (PokemonType::POISON, PokemonType::TYPELESS);
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::TOXIC,
+        Choices::SPLASH,
+    );
+
+    assert_eq!(2, vec_of_instructions.len());
+    assert_eq!(15.0, vec_of_instructions[0].percentage.round());
+}
