@@ -625,6 +625,10 @@ mod test {
     // Make sure that the size of the Instruction enum doesn't change
     #[test]
     fn test_instruction_size() {
+        // genx stores Items as u16; gens 1-3 keep their own u8 Items
+        #[cfg(any(feature = "gen1", feature = "gen2", feature = "gen3"))]
+        assert_eq!(size_of::<Instruction>(), 6);
+        #[cfg(not(any(feature = "gen1", feature = "gen2", feature = "gen3")))]
         assert_eq!(size_of::<Instruction>(), 8);
         assert_eq!(align_of::<Instruction>(), 2);
     }
