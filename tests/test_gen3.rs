@@ -1183,3 +1183,25 @@ fn test_sleep_talk_move_branches_on_a_roll_that_can_kill() {
         |i| matches!(i, Instruction::Damage(d) if d.side_ref == SideReference::SideTwo && d.damage_amount == 50)
     )));
 }
+
+#[test]
+fn test_sturdy_does_not_survive_a_lethal_hit_at_full_hp() {
+    let mut state = State::default();
+    state.side_two.get_active().ability = Abilities::STURDY;
+    state.side_two.get_active().hp = 20;
+    state.side_two.get_active().maxhp = 20;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::TACKLE,
+        Choices::SPLASH,
+    );
+
+    assert_eq!(
+        Instruction::Damage(DamageInstruction {
+            side_ref: SideReference::SideTwo,
+            damage_amount: 20,
+        }),
+        vec_of_instructions[0].instruction_list[0]
+    );
+}

@@ -1098,11 +1098,9 @@ fn generate_instructions_from_damage(
             let mut knocked_out = false;
             damage_dealt = cmp::min(calculated_damage, defending_pokemon.hp);
             if damage_dealt != 0 {
-                if has_endure
-                    || ((defending_pokemon.ability == Abilities::STURDY
-                        || defending_pokemon.item == Items::FOCUSSASH)
-                        && defending_pokemon.maxhp == defending_pokemon.hp)
-                {
+                // Endure leaves 1 HP. Gen 3 has no Focus Sash, and Gen 3 Sturdy only blocks OHKO moves
+                // (Showdown data/mods/gen4/abilities.js sturdy: onTryHit, move.ohko), not lethal hits at full HP.
+                if has_endure && damage_dealt == defending_pokemon.hp {
                     damage_dealt -= 1;
                 }
 
