@@ -1062,3 +1062,46 @@ fn test_guts_does_not_boost_the_attack_of_a_pokemon_waking_up() {
         damage_to_side_two(&mut guts, Choices::TACKLE)
     );
 }
+
+fn crit_branch_percentage(state: &mut State) -> f32 {
+    state.side_two.get_active().maxhp = 500;
+    state.side_two.get_active().hp = 500;
+    state
+        .side_one
+        .get_active()
+        .replace_move(PokemonMoveIndex::M0, Choices::TACKLE);
+    state
+        .side_two
+        .get_active()
+        .replace_move(PokemonMoveIndex::M0, Choices::SPLASH);
+    let branches = generate_instructions_from_move_pair(
+        state,
+        &MoveChoice::Move(PokemonMoveIndex::M0),
+        &MoveChoice::Move(PokemonMoveIndex::M0),
+        true,
+    );
+    assert_eq!(2, branches.len());
+    branches[1].percentage
+}
+
+#[test]
+fn test_stick_raises_farfetchds_crit_chance_by_two_stages() {
+    let mut state = State::default();
+    state.side_one.get_active().id = poke_engine::pokemon::PokemonName::FARFETCHD;
+    state.side_one.get_active().item = Items::STICK;
+    assert_eq!(25.0, crit_branch_percentage(&mut state));
+}
+
+#[test]
+fn test_stick_does_nothing_for_other_pokemon() {
+    let mut state = State::default();
+    state.side_one.get_active().item = Items::STICK;
+    assert_eq!(6.25, crit_branch_percentage(&mut state));
+}
+
+#[test]
+fn test_scope_lens_raises_crit_chance_by_one_stage() {
+    let mut state = State::default();
+    state.side_one.get_active().item = Items::SCOPELENS;
+    assert_eq!(12.5, crit_branch_percentage(&mut state));
+}
