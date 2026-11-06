@@ -775,3 +775,56 @@ fn test_endeavor_when_attacker_hp_is_higher() {
     }];
     assert_eq!(expected_instructions, vec_of_instructions);
 }
+
+#[test]
+fn test_leftovers_heals_before_poison_damage() {
+    // Showdown Gen 3: Leftovers (residual order 10/4) before poison (10/6). At full HP the heal does nothing and the
+    // poison then deals the full 1/8.
+    let mut state = State::default();
+    state.side_one.get_active().status = PokemonStatus::POISON;
+    state.side_one.get_active().item = Items::LEFTOVERS;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![Instruction::Damage(DamageInstruction {
+            side_ref: SideReference::SideOne,
+            damage_amount: 12,
+        })],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
+
+#[test]
+fn test_leftovers_heals_before_burn_damage_when_damaged() {
+    let mut state = State::default();
+    state.side_one.get_active().hp = 50;
+    state.side_one.get_active().status = PokemonStatus::BURN;
+    state.side_one.get_active().item = Items::LEFTOVERS;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![
+            Instruction::Heal(HealInstruction {
+                side_ref: SideReference::SideOne,
+                heal_amount: 6,
+            }),
+            Instruction::Damage(DamageInstruction {
+                side_ref: SideReference::SideOne,
+                damage_amount: 12,
+            }),
+        ],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}

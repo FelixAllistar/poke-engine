@@ -2126,6 +2126,23 @@ fn add_end_of_turn_instructions(
         }
     }
 
+    // leftovers: Showdown's Gen 3 (data/mods/gen4/items.js leftovers, onResidualOrder 10, onResidualSubOrder 4)
+    // heals before poison/toxic/burn damage (data/mods/gen4/conditions.js, order 10, sub-order 6)
+    for side_ref in sides {
+        let active_pkmn = state.get_side(side_ref).get_active();
+        if active_pkmn.hp == 0 || active_pkmn.item != Items::LEFTOVERS || active_pkmn.hp >= active_pkmn.maxhp {
+            continue;
+        }
+        let heal_amount = cmp::min(active_pkmn.maxhp / 16, active_pkmn.maxhp - active_pkmn.hp);
+        active_pkmn.hp += heal_amount;
+        incoming_instructions
+            .instruction_list
+            .push(Instruction::Heal(HealInstruction {
+                side_ref: *side_ref,
+                heal_amount,
+            }));
+    }
+
     // status damage
     for side_ref in sides {
         let side = state.get_side(side_ref);

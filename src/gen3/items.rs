@@ -367,18 +367,6 @@ pub fn item_end_of_turn(
         Items::RAWSTBERRY if active_pkmn.status == PokemonStatus::BURN => {
             status_cure_berry(Items::RAWSTBERRY, side_ref, attacking_side, instructions)
         }
-        Items::LEFTOVERS => {
-            let attacker = state.get_side(side_ref).get_active();
-            if attacker.hp < attacker.maxhp {
-                let heal_amount = cmp::min(attacker.maxhp / 16, attacker.maxhp - attacker.hp);
-                let ins = Instruction::Heal(HealInstruction {
-                    side_ref: side_ref.clone(),
-                    heal_amount: heal_amount,
-                });
-                attacker.hp += heal_amount;
-                instructions.instruction_list.push(ins);
-            }
-        }
         _ => {}
     }
 }
