@@ -11,7 +11,9 @@ use crate::instruction::{
     BoostInstruction, ChangeAbilityInstruction, ChangeStatusInstruction, ChangeType, ChangeWeather,
     DamageInstruction, HealInstruction, Instruction, StateInstructions,
 };
-use crate::state::{PokemonBoostableStat, PokemonStatus, PokemonType, SideReference, State};
+use crate::state::{
+    LastUsedMove, PokemonBoostableStat, PokemonStatus, PokemonType, SideReference, State,
+};
 use std::cmp;
 
 pub const WEATHER_ABILITY_TURNS: i8 = -1;
@@ -193,7 +195,10 @@ pub fn ability_end_of_turn(
     let active_pkmn = attacking_side.get_active();
     match active_pkmn.ability {
         Abilities::SPEEDBOOST => {
-            if attacking_side.speed_boost < 6 {
+            // no boost on the turn the pokemon switched in
+            if attacking_side.speed_boost < 6
+                && !matches!(attacking_side.last_used_move, LastUsedMove::Switch(_))
+            {
                 let ins = Instruction::Boost(BoostInstruction {
                     side_ref: side_ref.clone(),
                     stat: PokemonBoostableStat::Speed,

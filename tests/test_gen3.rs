@@ -859,3 +859,22 @@ fn test_two_layers_of_spikes_deal_one_sixth() {
     }];
     assert_eq!(expected_instructions, vec_of_instructions);
 }
+
+#[test]
+fn test_speedboost_does_not_boost_on_the_turn_of_switching_in() {
+    let mut state = State::default();
+    state.side_one.pokemon[PokemonIndex::P1].ability = Abilities::SPEEDBOOST;
+    state.set_conditional_mechanics();
+
+    let vec_of_instructions = generate_instructions_with_state_assertion(
+        &mut state,
+        &MoveChoice::Switch(PokemonIndex::P1),
+        &MoveChoice::None,
+    );
+
+    for branch in vec_of_instructions {
+        for ins in branch.instruction_list {
+            assert!(!matches!(ins, Instruction::Boost(_)), "unexpected boost: {:?}", ins);
+        }
+    }
+}
