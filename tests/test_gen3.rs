@@ -987,3 +987,28 @@ fn test_synchronize_does_not_pass_back_sleep() {
         }
     }
 }
+
+#[test]
+fn test_pinch_berry_does_not_activate_from_this_turns_poison_damage() {
+    // Showdown Gen 3: pinch berries are checked at residual 10/4, before poison (10/6). A Pokemon that poison takes
+    // below 1/4 eats the berry next turn, not this one.
+    let mut state = State::default();
+    state.side_one.get_active().hp = 30;
+    state.side_one.get_active().status = PokemonStatus::POISON;
+    state.side_one.get_active().item = Items::PETAYABERRY;
+
+    let vec_of_instructions = set_moves_on_pkmn_and_call_generate_instructions(
+        &mut state,
+        Choices::SPLASH,
+        Choices::SPLASH,
+    );
+
+    let expected_instructions = vec![StateInstructions {
+        percentage: 100.0,
+        instruction_list: vec![Instruction::Damage(DamageInstruction {
+            side_ref: SideReference::SideOne,
+            damage_amount: 12,
+        })],
+    }];
+    assert_eq!(expected_instructions, vec_of_instructions);
+}
